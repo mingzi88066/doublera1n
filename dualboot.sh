@@ -242,6 +242,7 @@ while true; do
         "Start                     (installs 2nd Data the first time, boots it after)" \
         "SSH into 2nd Data" \
         "Re-apply fixes            (2nd Data running)" \
+        "Diagnostics               (2nd Data running: iCloud / Wi-Fi / touch / crashes)" \
         "Remove 2nd Data           (deletes DataB, back to stock only)" \
         "Dualboot: 2nd iOS ...     [developing] another iOS 27.x on its own volumes" \
         "More ..." \
@@ -250,10 +251,11 @@ while true; do
         0) run_cmd ;;
         1) header; "$PY" dualboot.py ssh; pause ;;
         2) run_cmd provision ;;
-        3) if confirm "REMOVE 2nd Data? Everything in DataB (apps, accounts, jailbreak) is lost. Stock iOS is kept."; then
+        3) run_cmd diag ;;
+        4) if confirm "REMOVE 2nd Data? Everything in DataB (apps, accounts, jailbreak) is lost. Stock iOS is kept."; then
                if confirm "Really delete DataB?"; then run_cmd remove; fi; fi ;;
-        4) os2_menu ;;
-        5) more_menu ;;
-        6) clear; exit 0 ;;
+        5) os2_menu ;;
+        6) more_menu ;;
+        7) clear; exit 0 ;;
     esac
 done

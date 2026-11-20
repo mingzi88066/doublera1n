@@ -653,6 +653,10 @@ DAEMONS = [  # mkdaemon name, stock program, weak dylib (OS B fix loaded into th
      '/private/preboot/Cryptexes/ob/ca.dylib'),
     ('commcenter', '/System/Library/Frameworks/CoreTelephony.framework/Support/CommCenter',
      '/private/var/wireless/Library/obfdr.dylib'),
+    # wirelessd: same obfdr FDR bypass as CommCenter, for the Wi-Fi/BT calibration ("wlcal").
+    # Without it the radio runs on the firmware's default calibration and Wi-Fi is very slow.
+    # Optional: skipped with a warning when this build's rootfs does not carry /usr/libexec/wirelessd.
+    ('wirelessd', '/usr/libexec/wirelessd', '/private/var/wireless/Library/obfdr.dylib'),
     ('securityd', '/usr/libexec/securityd', '/private/var/Keychains/obkeychain.dylib'),
     ('lockdownd', '/usr/libexec/lockdownd', '/private/var/root/Library/Lockdown/obpair.dylib'),
     ('mobileactivationd', '/usr/libexec/mobileactivationd', None),
@@ -666,8 +670,13 @@ def ensure_daemons(ws):
     os.makedirs(ws.p('build/daemons'), exist_ok=True)
     for name, path, weak in DAEMONS:
         if have_rootfs:
+            if not os.path.exists(os.path.join(ws.p('rootfs'), path.lstrip('/'))):
+                if name == 'wirelessd':
+                    warn(f"wirelessd is not at {path} in this rootfs - the Wi-Fi calibration fix is skipped")
+                    continue
+                die(f"{name} is missing from the rootfs ({ws.p('rootfs')} at {path})")
             ws.py('mkdaemon.py', name, path, *(['--weak-dylib', weak] if weak else []), capture=True)
-        elif not os.path.exists(ws.p('build/daemons', name)):
+        elif not os.path.exists(ws.p('build/daemons', name)) and name != 'wirelessd':
             die(f"{name} is missing and there is no rootfs ({ws.p('rootfs')}) to build it from")
     wd = ws.p('build/daemons/com.apple.watchdogd.plist')
     if have_rootfs:
@@ -691,8 +700,12 @@ def build_stage(ws):
             shutil.copy2(os.path.join(PAYLOAD, sub, f), os.path.join(st, sub, f))
     for name in ('ctkd', 'coreauthd', 'commcenter', 'securityd', 'lockdownd'):
         shutil.copy2(ws.p('build/daemons', name), os.path.join(st, 'daemons', name))
+    if os.path.exists(ws.p('build/daemons/wirelessd')):      # optional (rootfs-dependent, see ensure_daemons)
+        shutil.copy2(ws.p('build/daemons/wirelessd'), os.path.join(st, 'daemons/wirelessd'))
     for l in JOBS + ['com.apple.watchdogd']:
         shutil.copy2(ws.p('build/daemons', l + '.plist'), os.path.join(st, 'jobs', l + '.plist'))
+    for f in glob.glob(ws.p('build/daemons/com.apple.wirelessd*.plist')):
+        shutil.copy2(f, os.path.join(st, 'jobs', os.path.basename(f)))
     shutil.copy2(os.path.join(PAYLOAD, 'boot/com.apple.mobileactivationd.plist'), os.path.join(st, 'jobs'))
     for f in ('osb-boot.sh', 'jbjob.sh', 'obhook-restart.sh', 'uicache.wrapper.sh'):
         shutil.copy2(os.path.join(ROOT, 'device', f), os.path.join(st, 'scripts', f))
@@ -800,6 +813,19 @@ def pair_with_mac(ws, ssh):
             ssh.run('launchctl kickstart -k system/com.apple.mobile.lockdown', check=False)
             run('idevicepair', '-u', ssh.udid, 'pair', check=False, capture=True)
     warn("pairing not finished - redo it later with: idevicepair pair")
+
+def cmd_diag(a):
+    """On-device diagnostics (2nd Data running): activation, keychain, iCloud/akd, Wi-Fi, touch, crashes."""
+    ws, ssh = connect_osb(getattr(a, 'ecid', None))
+    script = os.path.join(ROOT, 'device', 'obs-diag.sh')
+    say("running on-device diagnostics (a couple of minutes, log scans) ...")
+    with open(script, 'rb') as f:
+        r = subprocess.run(ssh_argv(ssh) + ['zsh -s'], stdin=f, capture_output=True, text=True, timeout=900)
+    print(r.stdout)
+    if r.stderr.strip():
+        print(r.stderr)
+    if r.returncode:
+        warn(f"the diagnostic script exited with {r.returncode}")
 
 def cmd_provision(a, ws=None):
     ws, ssh = connect_osb(getattr(a, 'ecid', None), ws)
@@ -1127,6 +1153,8 @@ def main():
     s = sub.add_parser('remove', help='delete DataB + Preboot files'); s.add_argument('--ipsw')
     s = sub.add_parser('provision', help='(re)apply userland fixes over SSH'); s.add_argument('--ecid')
     s.add_argument('--apply', action='store_true', help='also run osb-boot.sh now (restarts daemons, respring)')
+    s = sub.add_parser('diag', help='on-device diagnostics: iCloud / Wi-Fi / touch / crashes (2nd Data running)')
+    s.add_argument('--ecid')
     sub.add_parser('status'); sub.add_parser('doctor')
     s = sub.add_parser('ssh', help='ssh into 2nd Data'); s.add_argument('--ecid'); s.add_argument('remote', nargs='*')
     sub.add_parser('rebuild', help='rebuild the 2nd Data boot artifacts').add_argument('--ecid')
@@ -1155,7 +1183,7 @@ def main():
     if getattr(a, 'ipsw', None):
         a.ipsw = clean_path(a.ipsw)
     {'boot': cmd_boot, 'install': cmd_install, 'remove': cmd_remove, 'provision': cmd_provision,
-     'status': cmd_status, 'doctor': cmd_doctor, 'ssh': cmd_ssh, 'rebuild': cmd_rebuild,
+     'status': cmd_status, 'doctor': cmd_doctor, 'ssh': cmd_ssh, 'rebuild': cmd_rebuild, 'diag': cmd_diag,
      'versions': cmd_versions, 'select': cmd_select, 'profile': cmd_profile, 'precheck': cmd_precheck,
      'os2': cmd_os2,
      None: cmd_auto}[a.cmd](a)

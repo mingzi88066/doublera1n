@@ -61,6 +61,7 @@ FW=/var/jb/System/Library/Frameworks
 inst $P/daemons/ctkd       $FW/CryptoTokenKit.framework/ctkd 755
 inst $P/daemons/coreauthd  $FW/LocalAuthentication.framework/Support/coreauthd 755
 inst $P/daemons/commcenter $FW/CoreTelephony.framework/Support/CommCenter 755
+[[ -f $P/daemons/wirelessd ]] && inst $P/daemons/wirelessd /var/jb/usr/libexec/wirelessd 755   # Wi-Fi calibration fix (optional)
 inst $P/daemons/securityd  /var/jb/usr/libexec/securityd 755
 inst $P/daemons/lockdownd  /var/jb/usr/libexec/lockdownd 755
 mkdir -p /var/jb/Library/OSBDaemons

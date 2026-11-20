@@ -43,6 +43,27 @@ Prefer a menu? `./dualboot.sh` (↑/↓ select, Enter run):
 
 I also fixed a lot of problems such as Wifi did not auto connect when reboot, deep sleep panic the device, SEP-less panic stuff, etc. You can check patches i did in the repo as well.
 
+## Troubleshooting
+
+Run `./dualboot.py diag` (or the menu: Diagnostics) while 2nd Data is running: it collects on-device
+evidence for the usual complaints — iCloud/Apple ID sign-in failures, slow Wi-Fi, touch dropouts and
+app crashes — and prints how to read it.
+
+- **iCloud sign-in**: the SEP-less data volume cannot store Apple ID session tokens in a stock
+  keychain: obkeychain now serves the item-secret classes of the device AND the user keybag
+  (WhenUnlocked-protected IDMS tokens land in the user keybag), and obacl stores ACL-constrained
+  items as class-wrapped keys. What still cannot work without a SEP is the server-side part: GSA
+  expects a real activation record and a device identity that only a SEP-backed activation produces
+  (`NoIdentity` / `X-Apple-I-MD` errors in the diag output). Everything short of that is fixable
+  client-side; check the diag's iCloud section.
+- **Slow Wi-Fi while connected**: the Wi-Fi/BT calibration blobs ("wlcal") are sealed in FDR with
+  the AP identity, and wirelessd unseals them the same way CommCenter does for the baseband. obfdr
+  now loads into wirelessd too (needs a rebuild on the Mac: `./src/build.sh`, then
+  `./dualboot.py provision --apply`). Without it the radio runs on the firmware's default
+  calibration: associated but very slow.
+- **App crashes**: check the crash section of the diag; an app that dies from tweak injection can be
+  added to `/var/jb/etc/obhook.deny` (user-editable), then respring.
+
 ## Dualboot: a 2nd iOS (developing feature)
 > [!NOTE]
 > **Developing feature.** The code is in, but it has not been booted on a device yet. Expect bugs.

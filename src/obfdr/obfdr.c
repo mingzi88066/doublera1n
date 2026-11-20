@@ -1,7 +1,7 @@
 /*
- * obfdr.dylib - let CommCenter unseal baseband calibration from FDR.
+ * obfdr.dylib - let CommCenter and wirelessd unseal radio calibration from FDR.
  *
- * The problem, as CommCenter logs it:
+ * CommCenter's problem, as CommCenter logs it:
  *
  *   CommCenter: BBUICE16UpdateSource: CAL: searching in FDR
  *   CommCenter: BBUFDRUtilities: DataClass: bbcl, DataInstance: "00000068-..."
@@ -79,13 +79,23 @@
  *   asserts CPRO=ff/CSEC=ff.
  *
  * Scope. Three guards, each of which alone reduces this to stock behaviour:
- * the host process must be CommCenter, the marker file must exist, and only
- * those three keys are answered. Every other MobileGestalt query in the process
- * is untouched, and nothing outside CommCenter is affected, so no other
- * consumer of these values starts believing the AP is demoted.
+ * the host process must be CommCenter or wirelessd, the marker file must
+ * exist, and only those three keys are answered. Every other MobileGestalt
+ * query in the process is untouched, and no other process is affected, so no
+ * other consumer of these values starts believing the AP is demoted.
  *
  * The marker is the recovery handle: deleting that one file restores stock
  * behaviour without redeploying the re-signed CommCenter.
+ *
+ * wirelessd (Wi-Fi) has the same problem. The Wi-Fi/BT calibration blobs
+ * ("wlcal") are sealed with the same AP identity the baseband ones are, and
+ * wirelessd unseals them through libFDR with the same sik digest comparison.
+ * When the digest does not match, the calibration is treated as "not found"
+ * and the radio runs with the firmware's built-in defaults: the association
+ * works, but TX power/PA tables are way off the factory values, so Wi-Fi is
+ * associated yet severely slow (low throughput, weak range). Serving the same
+ * three demotion answers inside wirelessd lets it unseal the factory
+ * calibration exactly like CommCenter does for the baseband.
  */
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -102,7 +112,10 @@
  * (upstream uses /usr/lib). dyld does not load the dylib into CommCenter from
  * /var/jb. */
 static const char *kEnablePath = "/private/var/wireless/Library/.obfdr-sik-bypass";
-static const char *kProcess = "CommCenter";
+
+/* The dylib is weak-loaded into both radio daemons (CommCenter for the
+ * baseband, wirelessd for Wi-Fi/BT); it stays inert everywhere else. */
+static const char *const kProcesses[] = { "CommCenter", "wirelessd" };
 
 /* The provider is called as provider(key, errorOut, context) and its result is
  * consumed as a +1 reference, the same as the MobileGestalt answer it replaces. */
@@ -149,11 +162,23 @@ static CFTypeRef demotion_answer(CFStringRef key, void *error, void *context)
     return CFRetain(value);
 }
 
+static bool process_is_ours(const char *program)
+{
+    if (program == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(kProcesses) / sizeof(kProcesses[0]); ++i) {
+        if (strcmp(program, kProcesses[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 __attribute__((constructor))
 static void install_demotion_answers(void)
 {
-    const char *program = getprogname();
-    if (program == NULL || strcmp(program, kProcess) != 0) {
+    if (!process_is_ours(getprogname())) {
         return;
     }
     if (!bypass_enabled()) {
@@ -199,5 +224,5 @@ static void install_demotion_answers(void)
 
     syslog(LOG_NOTICE,
            "obfdr: loaded in %s, registered %zu of 3 demotion-state answers",
-           kProcess, installed);
+           getprogname(), installed);
 }

@@ -10,7 +10,8 @@
  * (ks_crypt -> aks_wrap_key -> status 0xe00002f0 -> -25291).
  *
  * This interposer gives securityd software-backed wrap/unwrap for the
- * item-secret keyclasses of the DEVICE keybag (handle 0):
+ * item-secret keyclasses of the DEVICE keybag (handle 0) and the USER keybag
+ * (handle 1):
  *
  *     6    key_class_ak        device-only item secrets
  *     7    key_class_ck        always-available item secrets (Wi-Fi
@@ -144,6 +145,18 @@ enum {
     kKeyClassCKU = 10,  /* key_class_cku: always-available, this-device-only */
     kKeyClassMeta = 39, /* the securityd metadata store key */
     kKeybagDevice = 0,  /* g_keychain_keybag: the DEVICE keybag handle */
+    kKeybagUser = 1,    /* the USER keybag. With a SEP, class keys for the user
+                         * keybag are minted when the passcode unlocks it. OS B has
+                         * no SEP, so the user keybag has no class keys at all and
+                         * every item a client stores in it fails like the device
+                         * keybag items did before this shim: -25291. akd and
+                         * accountsd put the Apple ID / iCloud session tokens
+                         * (WhenUnlocked-protected IDMS secrets) in the user
+                         * keybag, so without serving it iCloud sign-in cannot
+                         * store its tokens. The blob format records only the
+                         * keyclass (no keybag field), so device- and user-keybag
+                         * items share one derivation and existing blobs stay
+                         * readable. */
     kBlobHeader = 8,
     kBlobNonce = 16,
     kBlobMac = 32,
@@ -206,11 +219,20 @@ static bool is_securityd(void)
  *
  * The class set is the item-secret classes only. The device-key classes
  * (8 dk, 11 dku, 12 akpu) and any other bag are deliberately not served:
- * those keys guard system state this shim must not pretend to hold. */
+ * those keys guard system state this shim must not pretend to hold. Both
+ * the device (0) and the user (1) keybag are served for the item-secret
+ * classes: the user keybag has no class keys of its own without a SEP, so
+ * WhenUnlocked-protected items (Apple ID session tokens, account secrets)
+ * would fail with -25291 otherwise. */
 static bool class_is_served(int keyclass)
 {
     return keyclass == kKeyClassAK || keyclass == kKeyClassCK ||
            keyclass == kKeyClassCKU || keyclass == kKeyClassMeta;
+}
+
+static bool bag_is_served(int keybag)
+{
+    return keybag == kKeybagDevice || keybag == kKeybagUser;
 }
 
 static bool request_is_ours(int keyclass, int keybag, const void *source,
@@ -219,7 +241,7 @@ static bool request_is_ours(int keyclass, int keybag, const void *source,
 {
     if (!shim_enabled() || !is_securityd())
         return false;
-    if (keybag != kKeybagDevice)
+    if (!bag_is_served(keybag))
         return false;
     if (!class_is_served(keyclass))
         return false;

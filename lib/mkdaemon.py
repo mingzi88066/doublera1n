@@ -67,7 +67,11 @@ def main():
     js = osbcfg.rec(f'{name}.json')
     if not os.path.exists(js):
         import json, pf
-        json.dump(pf.resolve('userland', name, stock), open(js, 'w'), indent=1)
+        try:
+            recs_json = pf.resolve('userland', name, stock)
+        except KeyError:
+            recs_json = []      # no patch plan for this daemon (e.g. wirelessd): re-sign it unchanged
+        json.dump(recs_json, open(js, 'w'), indent=1)
     recs = kpf.load_records([js]) if os.path.getsize(js) else []
     words = kpf.records_to_words(bytes(raw), recs)
     for off, o, n in words: struct.pack_into('<I', raw, off, n)
