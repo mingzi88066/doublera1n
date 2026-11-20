@@ -30,14 +30,40 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 command -v brew >/dev/null 2>&1 || fail "Homebrew is missing - install it from https://brew.sh, then run ./setup.sh again"
 
+step "Homebrew update"
+# An old checkout can sit on the abandoned master branch ("Homebrew's master branch is no longer
+# supported"): brew update migrates it; a checkout too old to know how falls back to switching to
+# main by hand. Without this every brew install below fails.
+if ! BREW_UPDATED=$(brew update 2>&1); then
+    REPO=$(brew --repository 2>/dev/null)
+    BR=$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    if [ "$BR" = "master" ]; then
+        echo "   migrating Homebrew (master -> main) ..."
+        git -C "$REPO" fetch --force origin 2>/dev/null
+        git -C "$REPO" checkout -B main origin/main 2>&1 | tail -1
+        brew update 2>&1 | tail -2 || true
+    else
+        echo "$BREW_UPDATED" | tail -2
+        brew update-reset 2>&1 | tail -1 || true
+    fi
+fi
+
 step "Homebrew packages"
 # formula:command - skipped when the command already exists (keeps a custom irecovery/ldid build untouched)
+# a failed install retries once: transient tap/API errors after a long-lived install
+bi() { # bi <formula> [retry]
+    if [ "$2" = retry ]; then
+        brew update 2>&1 | tail -1; brew install "$1"
+    else
+        brew install "$1"
+    fi
+}
 for fc in libimobiledevice:iproxy libimobiledevice:idevice_id libirecovery:irecovery ldid:ldid python@3:python3; do
     f=${fc%%:*}; c=${fc##*:}
     if command -v "$c" >/dev/null 2>&1; then echo "   ${G}✓${N} $c ($(command -v "$c"))"
-    else brew install "$f" || fail "brew install $f"; fi
+    else bi "$f" || bi "$f" retry || fail "brew install $f"; fi
 done
-brew list --versions libusb >/dev/null 2>&1 || brew install libusb || fail "brew install libusb"
+brew list --versions libusb >/dev/null 2>&1 || { bi libusb || bi libusb retry || fail "brew install libusb"; }
 echo "   ${G}✓${N} libusb"
 # blacktop/ipsw: IPSW download, remote extraction of single components (pre-check), rootfs DMG decryption
 IPSW_MIN=3.1.700
