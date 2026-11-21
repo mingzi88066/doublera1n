@@ -21,8 +21,10 @@ P = osbcfg.patch
 IMAGES = [  # (ipsw im4p, output, fourcc or None, record files)
     (osbcfg.comp('KernelCache'), 'Kernelcache.img4', 'rkrn',
      [P('kernel-restore-nodebugger.json'), P('kernel-vm-fault-cs-bypass.json')]),
-    (osbcfg.comp('Ap,TrustedExecutionMonitor'), 'TXM.img4', None, [P('txm-cs-only.json')]),
 ]
+# iOS 16 T8030 firmware has no TXM/SPTM (introduced with iOS 17): the profile omits the TXM plans then
+if osbcfg.has('Ap,TrustedExecutionMonitor'):
+    IMAGES.append((osbcfg.comp('Ap,TrustedExecutionMonitor'), 'TXM.img4', None, [P('txm-cs-only.json')]))
 
 def main():
     os.makedirs(OUT, exist_ok=True)

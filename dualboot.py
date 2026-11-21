@@ -15,7 +15,7 @@ Nothing on the stock OS is modified: a normal reboot always returns to stock iOS
   ./dualboot.py versions | select | precheck | profile
                                  pick the iOS build installed on the phone; profiles are generated per build
   ./dualboot.py os2 install|boot|provision|remove|status
-                                 DEVELOPING FEATURE (not device-tested): a 2nd iOS 27.x on its own volumes
+                                 DEVELOPING FEATURE (not device-tested): a 2nd iOS build on its own volumes
                                  (OS2System + OS2Data), installed from 2nd Data and booted from pwned DFU
 """
 import argparse, glob, json, os, shutil, subprocess, sys, time
@@ -213,9 +213,12 @@ IPSW_KEYS = ['BuildManifest.plist']   # + every BuildManifest component the chai
 
 # ------------------------------------------------------------------------------------------- iOS versions
 # OS B runs on the phone's own stock System volume (same cryptexes, same static trust cache), so it must be the
-# build that is installed on the phone. Any iOS 27.x build can be selected: its profile (every patch site) is
+# build that is installed on the phone. Any supported build can be selected: its profile (every patch site) is
 # generated from that build's IPSW by lib/mkprofile.py (lib/patchfinder + lib/kpatchfind.py), never copied.
+# iOS 16.x is accepted since the dualboot-iOS16 fork: iOS 16 T8030 has no TXM/SPTM (the profile then omits the
+# TXM plans), but its kernel needs new resolver work (see profiles/*/profile.json "pending_families").
 SELECTED = os.path.join(WORKROOT, 'selected-version.json')
+SUPPORTED_MAJORS = ('16', '27')
 
 def load_selected():
     try:
@@ -236,7 +239,7 @@ def public_builds(product):
         warn(f"could not get the IPSW list from ipsw.me ({e})")
         return []
     return [dict(version=f['version'], build=f['buildid'], signed=bool(f['signed']), url=f['url'])
-            for f in d.get('firmwares', []) if f['version'].split('.')[0] == '27']
+            for f in d.get('firmwares', []) if f['version'].split('.')[0] in SUPPORTED_MAJORS]
 
 def detect_installed():
     """(product type, version, build) of a phone booted into iOS and connected over USB, else None."""
@@ -325,8 +328,8 @@ def cmd_select(a):
             print(f"   {i + 1}. {label}")
         n = input("   number: ").strip()
         build, ver = ch[int(n) - 1][:2]
-    if not ver.startswith('27'):
-        warn(f"iOS {ver or '?'}: this tool targets iOS 27.x (T8030)")
+    if not ver or ver.split('.')[0] not in SUPPORTED_MAJORS:
+        warn(f"iOS {ver or '?'}: this tool targets iOS {' / '.join(SUPPORTED_MAJORS)} (T8030)")
     save_selected(board=board, build=build, version=ver, ipsw=os.path.abspath(a.ipsw) if a.ipsw else '')
     say(f"selected iOS {ver} ({build}) for {board}. It MUST be the iOS version installed on the phone.")
     if not a.no_precheck and not run_precheck(board, build, a.ipsw):
@@ -560,6 +563,10 @@ def cmd_install(a):
         next((v for b, v, _ in version_choices(board) if b == build), '')
     given_ipsw = getattr(a, 'ipsw', None) or (sel.get('ipsw') or None if sel.get('build') == build else None)
     prof = ensure_profile(board, build, ver, given_ipsw)
+    pending = prof.get('pending_families') or []
+    if pending:
+        die(f"profile for iOS {ver} ({build}) is INCOMPLETE - these resolver families do not support this iOS "
+            f"version yet (research needed, see README 'iOS 16 status'):\n      " + "\n      ".join(pending))
     say(f"iPhone ECID {q['ECID']}  {board}  -> profile iOS {prof['version']} ({prof['build']})"
         f"{'' if prof.get('tested') else '  [NOT DEVICE-TESTED]'}")
     say("2nd Data shares the System volume with stock iOS, so the phone MUST be running iOS "
@@ -1060,6 +1067,9 @@ def cmd_os2_install(a):
     if not a.skip_precheck and not run_precheck(board, build, a.ipsw):
         die("pre-check failed - nothing was done (use --skip-precheck to override)")
     prof = ensure_profile(board, build, ver, a.ipsw)
+    if prof.get('pending_families'):
+        die(f"profile for {build} is incomplete (pending resolver families: "
+            f"{', '.join(prof['pending_families'])}) - not staging a 2nd iOS from it")
     ws = OS2Workspace(base.ecid, prof)
     ws.state.update(board=board, build=build, base=os.path.basename(base.root)); ws.save()
     say(f"2nd iOS: iOS {prof['version']} ({build}) for {board}, workspace {ws.root}")

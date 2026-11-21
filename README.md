@@ -3,6 +3,15 @@
 > [!CAUTION]
 > CURRENTLY SUPPORTS iOS: 27.0-27.2 ON MAIN OS
 
+> [!NOTE]
+> **iOS 16 fork status (dualboot-iOS16):** the tool now accepts iOS 16.x builds, and iOS 16 firmware needs no
+> TXM/SPTM handling (that component only exists since iOS 17 - the profile omits the TXM plans automatically).
+> BUT booting iOS 16 is NOT possible yet: several kernel resolver families and the ramdisk/osb patch sets do not
+> support xnu-8792 (iOS 16's XNU) yet, and iOS 16's iBSS/iBEC are KBAG-encrypted (LZFSE_ENCRYPTED, GID key)
+> while iOS 27's are plain LZFSE - the host cannot patch the iOS 16 bootloaders without their decrypted images.
+> See [iOS 16 status](#ios-16-status-what-works-what-is-missing) below. `./dualboot.py install` refuses builds
+> whose profile still has `pending_families`.
+
 doublera1n runs the phone's own stock System volume (sealed, untouched) with a separated data volume, as `/private/var`. It is booted from pwned DFU (usbliter8) with a patched kernel/iBoot and comes with a rootless jailbreak.
 
 Stock iOS still here. A normal reboot on jailbreak data volume send you to stock iOS, to boot into the jailbreak state again, put the phone into pwned DFU and run `boot.sh`.
@@ -80,6 +89,25 @@ Stock iOS and DataB are not touched, and a normal reboot still goes to stock iOS
 ./dualboot.py os2 remove                    # 2nd Data running
 ```
 "Remove 2nd Data" refuses while a 2nd iOS is installed (both use the same folder in Preboot): remove the 2nd iOS first.
+
+## iOS 16 status: what works, what is missing
+
+Measured on iOS 16.6.1 / 20G81, iPhone 11 Pro (d421ap), kernel xnu-8796.142.1~1:
+
+| Resolver family | iOS 16 |
+|---|---|
+| kernel identity / panic / sandbox-compatibility / codesigning / vm-fault-cs-bypass / ppl | ✅ resolves |
+| kernel amfi (`PE_i_can_has_debugger` context) | ❌ needs new resolver logic |
+| kernel boot_policy (`spawn_validate_persona`), aks (`AKSUserClient::start`), sep_silence (`sepPanicCheck`) | ❌ anchor strings do not exist in xnu-8796 |
+| kernel exception_port (`com.apple.security.only-one-exception-port`) | ❌ entitlement string absent in iOS 16 |
+| kernel credential-manager (ACM) / tfp0 | ❌ needs xnu-8796 signature profiles |
+| kpatchfind ramdisk/osb sets (`mount union/rootfs` boot path) | ❌ iOS 16 boot path differs |
+| TXM plans | n/a - iOS 16 has no TXM (omitted automatically) |
+| iBSS / iBEC patching | ❌ LZFSE_ENCRYPTED (KBAG, A13 GID key unknown) - hardest blocker |
+
+Run `./dualboot.py select --build 20G81 && ./dualboot.py precheck --build 20G81` to see the live list
+(profiles/<board>-<build>/profile.json `pending_families`). Every item that turns ✅ brings an iOS 16 dualboot
+one step closer; the iBSS/iBEC encryption needs on-device research (e.g. bootrom-side decryption via pwned DFU).
 
 ## Requirements
 - A Mac (support both Apple silicon and Intel) with Homebrew. `setup.sh` installs libimobiledevice, libirecovery, ldid, libusb, [ipsw](https://github.com/blacktop/ipsw) and creates `.venv`.

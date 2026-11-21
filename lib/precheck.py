@@ -31,6 +31,7 @@ WORKROOT = os.environ.get('DUALBOOT_HOME') or os.path.expanduser('~/dualboot-wor
 PROFILES = os.path.join(ROOT, 'profiles')
 IPSW_MIN = (3, 1, 700)            # `ipsw extract --remote --pattern` as tested with this tool
 COMPONENTS = ['KernelCache', 'Ap,TrustedExecutionMonitor', 'iBSS', 'iBEC', 'DeviceTree']
+TXM_KEY = 'Ap,TrustedExecutionMonitor'   # absent from iOS 16.x firmware (introduced with iOS 17): chains drop it
 IBOOT_ARGS = {  # the longest literal each image gets in the tool (the boot-args slot must hold it)
     'iBSS': 'rd=md0 -v wdt=-1 serial=3 debug=0x2014e',
     'iBEC': 'jb=md0 -v serial=3 debug=0x2014e launchd_unsecure_cache=1 wdt=-1',
@@ -148,7 +149,8 @@ def fetch_parts(url, build, board, components=COMPONENTS):
     ids = [i for i in m['BuildIdentities'] if i['Info'].get('DeviceClass', '').lower() == board
            and i['Info'].get('RestoreBehavior') == 'Erase']
     if not ids: sys.exit(f"{build}: no Erase identity for {board}")
-    paths = [ids[0]['Manifest'][k]['Info']['Path'] for k in components]
+    # a component the build does not ship (TXM pre-iOS-17) is simply not fetched
+    paths = [ids[0]['Manifest'][k]['Info']['Path'] for k in components if k in ids[0]['Manifest']]
     missing = [p for p in paths if not find_in(root, p)]
     if missing:
         remote_extract(url, '^(' + '|'.join(re.escape(p) for p in missing) + ')$', root)
@@ -202,25 +204,35 @@ def main():
             info('source', f"{src}")
         fw = mkprofile.Firmware(src, board)
         if fw.build != a.build: sys.exit(f"{R}firmware is {fw.build}, expected {a.build}{N}")
-        comp = {k: fw.comp(k) for k in COMPONENTS}
+        components = [k for k in COMPONENTS if k in fw.ident['Manifest']]
+        comp = {k: fw.comp(k) for k in components}
+        chains = [(name, key, files, excl) for name, key, files, excl in CHAINS
+                  if key != TXM_KEY or TXM_KEY in fw.ident['Manifest']]
 
         # ---------------------------------------------------------------- 1. profile
         pdir = os.path.join(PROFILES, f'{board}-{a.build}')
         existed = os.path.exists(os.path.join(pdir, 'profile.json'))
         try:
             gen = mkprofile.generate(src, board, tmp if existed else PROFILES, rootfs=None, force=True)
+            gen_prof = json.load(open(os.path.join(gen, 'profile.json')))
             if existed:
-                diff = [f for f in KERNEL_TXM_FILES if record_keys(os.path.join(gen, f)) != record_keys(os.path.join(pdir, f))]
+                diff = [f for f in KERNEL_TXM_FILES
+                        if os.path.exists(os.path.join(gen, f)) and os.path.exists(os.path.join(pdir, f))
+                        and record_keys(os.path.join(gen, f)) != record_keys(os.path.join(pdir, f))]
                 if diff: bad('profile', f"existing profile differs from a fresh resolve: {diff}")
                 else: ok('profile', f"{pdir.replace(ROOT + '/', '')}: matches a fresh resolve of every site")
             else:
                 ok('profile', f"generated {pdir.replace(ROOT + '/', '')} (every site unique, original bytes recorded)")
+            if gen_prof.get('pending_families'):
+                bad('profile', "resolver families without support for this iOS version yet "
+                               "(research needed, see README 'iOS 16 status'): "
+                    + '; '.join(gen_prof['pending_families']))
         except SystemExit as e:
             bad('profile', f"a patch site could not be resolved uniquely: {e}")
             raise SystemExit(1)
 
         # ---------------------------------------------------------------- 2. records on the stock images
-        for name, key, files, excl in CHAINS:
+        for name, key, files, excl in chains:
             try:
                 img = raw_of(comp[key])
                 recs = kpf.load_records([os.path.join(pdir, f) for f in files], exclude_prefixes=excl)
@@ -230,6 +242,8 @@ def main():
                 else: ok('records', f"{name}: {len(recs)} records / {len(words)} words apply cleanly")
             except SystemExit as e:
                 bad('records', f"{name}: {e}")
+            except OSError as e:
+                bad('records', f"{name}: record file missing ({e})")
 
         # ---------------------------------------------------------------- 3. iBoot
         for key, args in IBOOT_ARGS.items():

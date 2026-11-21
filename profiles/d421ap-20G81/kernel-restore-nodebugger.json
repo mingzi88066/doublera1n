@@ -1,0 +1,82 @@
+[
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "same-length RELEASE_ARM64_T8030 -> PATCHED_ARM64_T8030",
+   "exactly two occurrences in the kernelcache",
+   "SoC token read from the binary",
+   "no data moves, container layout unchanged"
+  ],
+  "id": "kernel.identity.0",
+  "offset": 252798,
+  "originalBytes": "2f52454c454153455f41524d36345f5438303330",
+  "replacementBytes": "2f504154434845445f41524d36345f5438303330",
+  "summary": "Mark kernel version string 0 (T8030) as patched"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "same-length RELEASE_ARM64_T8030 -> PATCHED_ARM64_T8030",
+   "exactly two occurrences in the kernelcache",
+   "SoC token read from the binary",
+   "no data moves, container layout unchanged"
+  ],
+  "id": "kernel.identity.1",
+  "offset": 252900,
+  "originalBytes": "2f52454c454153455f41524d36345f5438303330",
+  "replacementBytes": "2f504154434845445f41524d36345f5438303330",
+  "summary": "Mark kernel version string 1 (T8030) as patched"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: Failed to find the root snapshot",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.root-snapshot",
+  "offset": 51749576,
+  "originalBytes": "a8062837",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the root-snapshot panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: root volume seal is broken",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.seal-broken",
+  "offset": 51211620,
+  "originalBytes": "00017037",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the seal-broken panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: rootvp not authenticated after mounting",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.rootvp-authentication",
+  "offset": 18340612,
+  "originalBytes": "60120035",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the rootvp-authentication panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: unencrypted data volume is not allowed",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.unencrypted-data-volume",
+  "offset": 51749304,
+  "originalBytes": "480e0037",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the unencrypted-data-volume panic block"
+ }
+]

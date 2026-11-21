@@ -187,7 +187,7 @@ run_cmd() {   # run_cmd <dualboot.py args>; no args = Start (auto: install the f
     pause
 }
 
-# 2nd iOS: another iOS 27.x on its own volumes (OS2System + OS2Data). DEVELOPING FEATURE - not device-tested yet.
+# 2nd iOS: another iOS (16.x / 27.x) on its own volumes (OS2System + OS2Data). DEVELOPING FEATURE - not device-tested yet.
 os2_menu() {
     menu "Dualboot: 2nd iOS  [developing feature - not device-tested yet]" \
         "Install a 2nd iOS        (2nd Data must be running; ~22 GB on the phone)" \
@@ -215,7 +215,7 @@ os2_choose_build() {
         builds+=("${line%%|*}"); labels+=("${line##*|}")
     done < <("$PY" dualboot.py versions --plain 2>/dev/null)
     labels+=("From an IPSW file ..." "Back")
-    menu "Which iOS for the 2nd iOS? (any iOS 27.x; it gets its own System + Data volumes)" "${labels[@]}"
+    menu "Which iOS for the 2nd iOS? (any supported iOS; it gets its own System + Data volumes)" "${labels[@]}"
     local i=$MENU_INDEX n=${#builds[@]}
     if [ "$i" -lt "$n" ]; then run_cmd os2 install --build "${builds[$i]}"
     elif [ "$i" -eq "$n" ]; then
@@ -244,7 +244,7 @@ while true; do
         "Re-apply fixes            (2nd Data running)" \
         "Diagnostics               (2nd Data running: iCloud / Wi-Fi / touch / crashes)" \
         "Remove 2nd Data           (deletes DataB, back to stock only)" \
-        "Dualboot: 2nd iOS ...     [developing] another iOS 27.x on its own volumes" \
+        "Dualboot: 2nd iOS ...     [developing] another iOS (16.x / 27.x) on its own volumes" \
         "More ..." \
         "Quit"
     case $MENU_INDEX in

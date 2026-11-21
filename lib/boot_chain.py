@@ -20,6 +20,9 @@ FIRMWARE = [('ANE.img4', 0), ('WCH.img4', 0), ('PMP.img4', 0), ('AOP.img4', 0), 
             ('RestoreTrustCache.img4', 0), ('TXM.img4', 0), ('SPTM.img4', 3)]
 OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have none
 if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
+# iOS 16 T8030 firmware has no TXM/SPTM: mk_kernel/mk_osb only generate TXM.img4/SPTM.img4 for builds that have
+# them, so send exactly the files that exist in this chain's directory
+FIRMWARE = [f for f in FIRMWARE if f[0] in OPTIONAL or os.path.exists(os.path.join(C, f[0]))]
 
 def recovery(timeout=40, hint=''):
     """a Recovery device whose string descriptors answer (a half-torn-down one after `go` does not)"""

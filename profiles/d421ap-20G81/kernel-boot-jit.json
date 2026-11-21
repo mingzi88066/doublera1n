@@ -1,0 +1,204 @@
+[
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "same-length RELEASE_ARM64_T8030 -> PATCHED_ARM64_T8030",
+   "exactly two occurrences in the kernelcache",
+   "SoC token read from the binary",
+   "no data moves, container layout unchanged"
+  ],
+  "id": "kernel.identity.0",
+  "offset": 252798,
+  "originalBytes": "2f52454c454153455f41524d36345f5438303330",
+  "replacementBytes": "2f504154434845445f41524d36345f5438303330",
+  "summary": "Mark kernel version string 0 (T8030) as patched"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "same-length RELEASE_ARM64_T8030 -> PATCHED_ARM64_T8030",
+   "exactly two occurrences in the kernelcache",
+   "SoC token read from the binary",
+   "no data moves, container layout unchanged"
+  ],
+  "id": "kernel.identity.1",
+  "offset": 252900,
+  "originalBytes": "2f52454c454153455f41524d36345f5438303330",
+  "replacementBytes": "2f504154434845445f41524d36345f5438303330",
+  "summary": "Mark kernel version string 1 (T8030) as patched"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: Failed to find the root snapshot",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.root-snapshot",
+  "offset": 51749576,
+  "originalBytes": "a8062837",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the root-snapshot panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: root volume seal is broken",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.seal-broken",
+  "offset": 51211620,
+  "originalBytes": "00017037",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the seal-broken panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: rootvp not authenticated after mounting",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.rootvp-authentication",
+  "offset": 18340612,
+  "originalBytes": "60120035",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the rootvp-authentication panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique diagnostic phrase: unencrypted data volume is not allowed",
+   "unique ADRP+ADD reference to its containing C string",
+   "conditional target is uniquely closest to that xref within the 0x40-byte panic-block window"
+  ],
+  "id": "kernel.panic.unencrypted-data-volume",
+  "offset": 51749304,
+  "originalBytes": "480e0037",
+  "replacementBytes": "1f2003d5",
+  "summary": "Do not enter the unencrypted-data-volume panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "mac_policy_conf -> mpc_ops[258]",
+   "mpc_ops[36] target"
+  ],
+  "id": "kernel.sandbox.vnode-check-exec.target",
+  "offset": 13989472,
+  "originalBytes": "d8ed0a03",
+  "replacementBytes": "308e0b03",
+  "summary": "Retarget vnode_check_exec to the existing allow stub"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "native target read from its mpc_ops slot"
+  ],
+  "id": "kernel.sandbox.file-check-mmap.result",
+  "offset": 51088944,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "000080d2",
+  "summary": "Return success from file_check_mmap"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired entry-point stub"
+  ],
+  "id": "kernel.sandbox.file-check-mmap.return",
+  "offset": 51088948,
+  "originalBytes": "ff0307d1",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return the forced Seatbelt result"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "native target read from its mpc_ops slot"
+  ],
+  "id": "kernel.sandbox.mount-check-mount.result",
+  "offset": 51086128,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "000080d2",
+  "summary": "Return success from mount_check_mount"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired entry-point stub"
+  ],
+  "id": "kernel.sandbox.mount-check-mount.return",
+  "offset": 51086132,
+  "originalBytes": "ffc306d1",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return the forced Seatbelt result"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "native target read from its mpc_ops slot"
+  ],
+  "id": "kernel.sandbox.mount-check-remount.result",
+  "offset": 51085864,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "000080d2",
+  "summary": "Return success from mount_check_remount"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired entry-point stub"
+  ],
+  "id": "kernel.sandbox.mount-check-remount.return",
+  "offset": 51085868,
+  "originalBytes": "ff0307d1",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return the forced Seatbelt result"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "native target read from its mpc_ops slot"
+  ],
+  "id": "kernel.sandbox.mount-check-unmount.result",
+  "offset": 51085632,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "000080d2",
+  "summary": "Return success from mount_check_umount"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired entry-point stub"
+  ],
+  "id": "kernel.sandbox.mount-check-unmount.return",
+  "offset": 51085636,
+  "originalBytes": "ff0307d1",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return the forced Seatbelt result"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "native target read from its mpc_ops slot"
+  ],
+  "id": "kernel.sandbox.vnode-check-rename.result",
+  "offset": 51063352,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "000080d2",
+  "summary": "Return success from vnode_check_rename"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired entry-point stub"
+  ],
+  "id": "kernel.sandbox.vnode-check-rename.return",
+  "offset": 51063356,
+  "originalBytes": "e923b96d",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return the forced Seatbelt result"
+ }
+]

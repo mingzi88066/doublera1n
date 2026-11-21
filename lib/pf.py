@@ -22,6 +22,27 @@ def resolve(component, plan, path):
     return [r.to_json() for r in records]
 
 
+def resolve_per_family(component, plan, path, max_detail=140):
+    """Resolve a plan family by family; a family that fails for this firmware is reported instead of aborting.
+
+    Returns (records, pending) where pending holds one "family: step (reason)" string per family that could not
+    be resolved. Successful families still run in plan order and their records keep the same shape and order as
+    resolve() would produce, so profiles of fully supported builds are byte-identical either way.
+    """
+    image = _core.load_image(path)
+    records, pending = [], []
+    for step in _resolve.PLANS[component][plan]:
+        try:
+            recs = step(image)
+            _resolve.verify_preimages(recs, image)
+        except Exception as e:                                   # noqa: BLE001 - one family must not sink the plan
+            reason = f'{type(e).__name__}: {e}'
+            pending.append(f'{plan}:{step.name} [{reason[:max_detail]}]')
+            continue
+        records.extend(r.to_json() for r in recs)
+    return records, pending
+
+
 def version():
     h = hashlib.sha256()
     for f in sorted(os.listdir(PF)):

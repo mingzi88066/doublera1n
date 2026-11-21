@@ -82,7 +82,8 @@ def main():
     assert chk.payload.output().data == raw and chk.fourcc == 'ibec'
     print(f"  iBEC.img4          fourcc=ibec desc={chk.description} boot-args={raw[raw.find(b'-v serial'):].split(bytes(1))[0].decode()!r}")
     patched(osbcfg.comp('KernelCache'), [os.path.join(REC, 'kernel-boot-jit.json')], 'Kernelcache.img4', 'rkrn')
-    patched(osbcfg.comp('Ap,TrustedExecutionMonitor'), [os.path.join(REC, 'txm-boot-permissive.json')], 'TXM.img4')
+    if osbcfg.has('Ap,TrustedExecutionMonitor'):   # iOS 16 firmware has no TXM (introduced with iOS 17)
+        patched(osbcfg.comp('Ap,TrustedExecutionMonitor'), [os.path.join(REC, 'txm-boot-permissive.json')], 'TXM.img4')
     # DeviceTree
     p = IM4P(open(osbcfg.ipsw('DeviceTree'), 'rb').read())
     p.payload.decompress()
