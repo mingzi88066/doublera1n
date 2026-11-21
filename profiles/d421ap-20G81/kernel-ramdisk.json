@@ -1,1 +1,26 @@
-[]
+[
+ {
+  "id": "kernel.rootdev.rename",
+  "offset": 653705,
+  "originalBytes": "7264",
+  "replacementBytes": "6a62",
+  "summary": "XNU boot-arg 'rd' -> 'jb' (bsd_init / IOFindBSDRoot share the string; kexts don't see rd=md0)",
+  "component": "kernelcache",
+  "evidence": [
+   "\"rd\" @0xfffffff0070a3989 used by fn 0xfffffff008180e24 with 'md0'"
+  ],
+  "va": "0xfffffff0070a3989"
+ },
+ {
+  "id": "kernel.apfs.rd.rename",
+  "offset": 8859478,
+  "originalBytes": "726400",
+  "replacementBytes": "6a6200",
+  "summary": "APFS root-mount ramdisk check: boot-arg 'rd' -> 'jb', so APFS roots on md0 with jb=md0",
+  "component": "kernelcache",
+  "evidence": [
+   "\"rd\" @0xfffffff007876f56 used by fn 0xfffffff00a179f88 with 'rootdev'"
+  ],
+  "va": "0xfffffff007876f56"
+ }
+]

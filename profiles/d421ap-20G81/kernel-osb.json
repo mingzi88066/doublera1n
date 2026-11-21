@@ -1,1 +1,91 @@
-[]
+[
+ {
+  "id": "kernel.sep.lynx-get-cpsn.no-panic",
+  "offset": 36548428,
+  "originalBytes": "40070054",
+  "replacementBytes": "1f2003d5",
+  "summary": "AppleSEPUserClient::DispatchUserClientLynxGetCPSN: no SEP endpoint but sep-booted -> return the error instead of REQUIRE(!booted) panic",
+  "component": "kernelcache",
+  "evidence": [
+   "stub 0xfffffff009309078 (\"!booted\" @0xfffffff00748cdb1)",
+   "CMP ; B.EQ @0xfffffff0092def4c -> BL 0xfffffff0092df034"
+  ],
+  "va": "0xfffffff0092def4c"
+ },
+ {
+  "id": "kernel.sep.lynx-get-pubkey.no-panic",
+  "offset": 36548952,
+  "originalBytes": "40070054",
+  "replacementBytes": "1f2003d5",
+  "summary": "AppleSEPUserClient::DispatchUserClientLynxGetPubKey: no SEP endpoint but sep-booted -> return the error instead of REQUIRE(!booted) panic",
+  "component": "kernelcache",
+  "evidence": [
+   "stub 0xfffffff009309110 (\"!booted\" @0xfffffff00748cdb1)",
+   "CMP ; B.EQ @0xfffffff0092df158 -> BL 0xfffffff0092df240"
+  ],
+  "va": "0xfffffff0092df158"
+ },
+ {
+  "id": "kernel.sep.hilo-update-timer.no-panic",
+  "offset": 36551944,
+  "originalBytes": "e0000054",
+  "replacementBytes": "1f2003d5",
+  "summary": "AppleSEPUserClient::DispatchHiloUpdateTimer: no SEP endpoint but sep-booted -> return the error instead of REQUIRE(!booted) panic",
+  "component": "kernelcache",
+  "evidence": [
+   "stub 0xfffffff009309408 (\"!booted\" @0xfffffff00748cdb1)",
+   "CMP ; B.EQ @0xfffffff0092dfd08 -> BL 0xfffffff0092dfd24"
+  ],
+  "va": "0xfffffff0092dfd08"
+ },
+ {
+  "id": "kernel.aks.sep-booted.false.0",
+  "offset": 36319552,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "00008052",
+  "summary": "AppleSEPKeyStore 'is SEP booted' -> false: PACIBSP -> MOV W0,#0 (BTI kept)",
+  "component": "kernelcache",
+  "evidence": [
+   "only \"sep-booted\" reader in AppleSEPKeyStore: fn 0xfffffff0092a7140"
+  ],
+  "va": "0xfffffff0092a7140"
+ },
+ {
+  "id": "kernel.aks.sep-booted.false.1",
+  "offset": 36319556,
+  "originalBytes": "ff4302d1",
+  "replacementBytes": "c0035fd6",
+  "summary": "SUB SP,SP,#imm -> RET (no frame/PAC set up yet)",
+  "component": "kernelcache",
+  "evidence": [
+   "only \"sep-booted\" reader in AppleSEPKeyStore: fn 0xfffffff0092a7140"
+  ],
+  "va": "0xfffffff0092a7144"
+ },
+ {
+  "id": "kernel.sep.sleep.sep-not-alive.0",
+  "offset": 36633032,
+  "originalBytes": "1f090071",
+  "replacementBytes": "1f1d0071",
+  "summary": "AppleSEPManager::_setPowerState sleep: CMP W8(_sep_state),#2 -> #7 (SEP OS never alive on OS B)",
+  "component": "kernelcache",
+  "evidence": [
+   "_setPowerState fn 0xfffffff0092f3890",
+   "CBZ W8 ; LDR W8 ; CMP W8,#2 ; B.NE @0xfffffff0092f39c0"
+  ],
+  "va": "0xfffffff0092f39c8"
+ },
+ {
+  "id": "kernel.sep.sleep.sep-not-alive.1",
+  "offset": 36633036,
+  "originalBytes": "810e0054",
+  "replacementBytes": "8a0e0054",
+  "summary": "B.NE -> B.GE: only an alive SEP (7/8/9) gets the endpoint sleep handshake; 1..6 sleep the IOP like 0/2",
+  "component": "kernelcache",
+  "evidence": [
+   "_setPowerState fn 0xfffffff0092f3890",
+   "CBZ W8 ; LDR W8 ; CMP W8,#2 ; B.NE @0xfffffff0092f39c0"
+  ],
+  "va": "0xfffffff0092f39cc"
+ }
+]

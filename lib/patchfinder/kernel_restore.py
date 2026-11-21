@@ -527,7 +527,10 @@ def _is_debugger_leaf(image: core.BinaryImage, offset: int) -> bool:
 
 def _debugger_stub(image: core.BinaryImage, layout: MachOLayout) -> List[PatchRecord]:
     """PE_i_can_has_debugger has no stable string; it is the structurally valid ADRP X8 leaf with the optional x0
-    output-pointer contract that has the most direct callers (call counts rank candidates, no fixed threshold)."""
+    output-pointer contract that has the most direct callers (call counts rank candidates, no fixed threshold).
+
+    xnu-8792/8796 (iOS 15/16) compiles the same source with a `bti c` prologue before the ADRP, so the iOS 27
+    pre-image does not exist there; `_debugger_stub_pre17` recovers it from the shifted shape instead."""
     candidates: List[int] = []
     for r in layout.executable_file_ranges:
         first = max((r.start + 3) & ~3, r.start + 4)
@@ -539,7 +542,7 @@ def _debugger_stub(image: core.BinaryImage, layout: MachOLayout) -> List[PatchRe
         candidates.extend(offset for offset in offsets if _is_debugger_leaf(image, offset))
 
     if not candidates:
-        raise PatchfinderError.no_candidate('PE_i_can_has_debugger')
+        return _debugger_stub_pre17(image, layout)
     call_counts = _direct_call_counts(image, layout, set(candidates))
     callers = [call_counts.get(offset, 0) for offset in candidates]
     maximum = max(callers)
@@ -555,6 +558,70 @@ def _debugger_stub(image: core.BinaryImage, layout: MachOLayout) -> List[PatchRe
                     'Return the forced debugger result',
                     ('paired leaf-function stub',)),
     ]
+
+
+def _debugger_stub_pre17(image: core.BinaryImage, layout: MachOLayout) -> List[PatchRecord]:
+    """PE_i_can_has_debugger of xnu-8792/8796 (iOS 15/16): `uint32_t PE_i_can_has_debugger(uint32_t *debug_flags)`.
+
+    Shape (per the xnu-8796 source and the 20G81 kernelcache, unique in __TEXT_EXEC):
+      [RET*/PACIBSP boundary]  BTI c  |  ADRP x8, <debug_enabled page>  |  CBZ x0, <skip>
+      LDR w9, [x8, #imm]  |  [ADRP x10 + LDR w10 + CMP + CSEL]  |  STR w, [x0]
+      LDR w0, [x8, #imm]  |  RET
+    The first and the closing load read the SAME word (debug_enabled) from the same page+offset; no calls inside.
+    Patched at the two words after the BTI c, which stays intact so indirect callers keep a valid landing pad."""
+    hits: List[int] = []
+    for r in layout.executable_file_ranges:
+        o = r.start
+        while o < r.stop - 0x50:
+            if ARM64.is_return(image.read_u32(o)) or image.read_u32(o) == ARM64.pacibsp:
+                fn = _pre17_debugger_fn(image, o + 4, r.stop)
+                if fn is not None:
+                    hits.append(fn)
+            o += 4
+    if len(hits) != 1:
+        if not hits:
+            raise PatchfinderError.no_candidate('PE_i_can_has_debugger')
+        raise PatchfinderError.ambiguous_candidate('PE_i_can_has_debugger', hits)
+    start = hits[0] + 4                        # keep the BTI c landing pad intact
+    return [
+        _word_patch(image, 'kernel.debugger.result', start, ARM64.mov_x0_one,
+                    'Report that the platform permits a debugger',
+                    ('unique xnu-879x shape: BTI c, ADRP x8, CBZ x0, paired same-offset LDR w0,[x8] before RET',)),
+        _word_patch(image, 'kernel.debugger.return', start + 4, ARM64.ret,
+                    'Return the forced debugger result',
+                    ('paired leaf-function stub (debug_flags out-pointer contract of the xnu source)',)),
+    ]
+
+
+def _pre17_debugger_fn(image: core.BinaryImage, fn: int, stop: int) -> Optional[int]:
+    """The ADRP x8 word of a pre-17 PE_i_can_has_debugger whose boundary is one word before `fn`, or None."""
+    read = image.read_u32
+    if read(fn) == 0xD503_245F:                # BTI c: the real entry is the next word
+        fn += 4
+    if fn + 0x40 >= stop or read(fn) & 0x9F00_001F != 0x9000_0008:   # ADRP x8
+        return None
+    if read(fn + 4) & 0xFF00_001F != 0xB400_0000:                    # CBZ x0
+        return None
+    end = fn + 8
+    for _ in range(16):
+        if ARM64.is_return(read(end)):
+            break
+        end += 4
+    else:
+        return None
+    body = [read(fn + 8 + 4 * i) for i in range((end - (fn + 8)) // 4)]
+    if not body or any(w & 0xFC00_0000 == 0x9400_0000 for w in body):   # no calls inside
+        return None
+    loads = [(w >> 10) & 0xFFF for w in body
+             if w & 0xFFC0_0000 == 0xB940_0000 and (w >> 5) & 0x1F == 8]          # LDR w?, [x8, #imm]
+    if not loads or not any(w & 0xFFC0_0000 == 0xB900_0000 and (w >> 5) & 0x1F == 0 for w in body):
+        return None                                     # no STR w?, [x0]
+    last = body[-1]
+    if last & 0xFFC0_0000 != 0xB940_0000 or (last >> 5) & 0x1F != 8 or last & 0x1F != 0:
+        return None                                     # closing LDR w0, [x8, #imm]
+    if (last >> 10) & 0xFFF != loads[0]:
+        return None                                     # the two loads must read the same word
+    return fn
 
 
 # -- developer_mode_state ------------------------------------------------------------------------------------------

@@ -6,8 +6,9 @@
 > [!NOTE]
 > **iOS 16 fork status (dualboot-iOS16):** the tool now accepts iOS 16.x builds, and iOS 16 firmware needs no
 > TXM/SPTM handling (that component only exists since iOS 17 - the profile omits the TXM plans automatically).
-> BUT booting iOS 16 is NOT possible yet: several kernel resolver families and the ramdisk/osb patch sets do not
-> support xnu-8792 (iOS 16's XNU) yet, and iOS 16's iBSS/iBEC are KBAG-encrypted (LZFSE_ENCRYPTED, GID key)
+> BUT booting iOS 16 is NOT possible yet: the whole SETUP chain (kernel restore + ramdisk set) resolves fully
+> there, but the 2nd-Data boot-jit plan still misses the aks / sep_silence / credential-manager / valeria
+> families on xnu-8796, and iOS 16's iBSS/iBEC are KBAG-encrypted (LZFSE_ENCRYPTED, GID key)
 > while iOS 27's are plain LZFSE - the host cannot patch the iOS 16 bootloaders without their decrypted images.
 > See [iOS 16 status](#ios-16-status-what-works-what-is-missing) below. `./dualboot.py install` refuses builds
 > whose profile still has `pending_families`.
@@ -97,11 +98,17 @@ Measured on iOS 16.6.1 / 20G81, iPhone 11 Pro (d421ap), kernel xnu-8796.142.1~1:
 | Resolver family | iOS 16 |
 |---|---|
 | kernel identity / panic / sandbox-compatibility / codesigning / vm-fault-cs-bypass / ppl | ✅ resolves |
-| kernel amfi (`PE_i_can_has_debugger` context) | ❌ needs new resolver logic |
-| kernel boot_policy (`spawn_validate_persona`), aks (`AKSUserClient::start`), sep_silence (`sepPanicCheck`) | ❌ anchor strings do not exist in xnu-8796 |
-| kernel exception_port (`com.apple.security.only-one-exception-port`) | ❌ entitlement string absent in iOS 16 |
-| kernel credential-manager (ACM) / tfp0 | ❌ needs xnu-8796 signature profiles |
-| kpatchfind ramdisk/osb sets (`mount union/rootfs` boot path) | ❌ iOS 16 boot path differs |
+| kernel amfi (trust-cache, launch-constraints, debugger, developer-mode, post-validation, dyld-policy) | ✅ resolves - new pre-17 `PE_i_can_has_debugger` resolver (BTI c + paired-load shape, 206 direct callers) |
+| kernel boot_policy: USB restore-mode stub | ✅ resolves |
+| kernel boot_policy: persona uid/gid guards | n/a - `spawn_validate_persona` does not exist before xnu-10002 (skipped by version gate) |
+| kernel exception_port | n/a - the EXC_GUARD enforcement does not exist before xnu-10002 (skipped by version gate) |
+| kpatchfind ramdisk set: rd/jb renames | ✅ resolves (2 records) |
+| kpatchfind ramdisk set: mount union/rootfs | n/a - iOS 16's `__mac_mount` is built with CONFIG_UNION_MOUNTS enabled, there is no MNT_UNION -> EPERM path to patch |
+| kpatchfind osb set (SEP no-panic stubs, sep-booted false, sleep sep-not-alive) | ✅ resolves - same 7 records as 27.x |
+| kernel aks (`AKSUserClient::start` SEP call, externalMethod selector-7 shim, log call) | ❌ needs new masked patterns for the iOS 16 AppleKeyStore kext |
+| kernel sep_silence (`sepPanicCheck`, `_didTimeout`, set-power/notify-active gates, PRNG reseed) | ❌ iOS 16 restructured the retry logic; only the paging-off anchor resolves today |
+| kernel credential-manager (ACM) / tfp0 | ❌ needs per-method masked signatures recorded for xnu-8796 |
+| kernel valeria (inactive-owner check + registration shim cave) | ❌ needs its own iOS 16 research |
 | TXM plans | n/a - iOS 16 has no TXM (omitted automatically) |
 | iBSS / iBEC patching | ❌ LZFSE_ENCRYPTED (KBAG, A13 GID key unknown) - hardest blocker |
 

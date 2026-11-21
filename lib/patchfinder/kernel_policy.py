@@ -53,6 +53,18 @@ PREFIXES = {
 
 _RETAB = 0xD65F_0FFF
 
+# spawn_validate_persona (and the kernel-side exception-port behavior enforcement) appeared with the iOS 17 /
+# macOS Sonoma xnu-10002 release; pre-10002 kernels (iOS 16 = xnu-8796) have neither, so those two sub-families
+# resolve to nothing there instead of failing with a missing anchor.
+_PERSONA_VALIDATION_XNU = 10002
+
+
+def _xnu_version(image: core.BinaryImage) -> int:
+    """The integer release number of the kernel's embedded `xnu-<release>` version string (0 if absent)."""
+    import re
+    match = re.search(rb'xnu-(\d+)', image.data)
+    return int(match.group(1)) if match else 0
+
 
 def _word_patch(image: core.BinaryImage, id: str, offset: int, replacement: int, summary: str,  # noqa: A002
                 evidence) -> PatchRecord:
@@ -71,9 +83,15 @@ def boot_policy(image: core.BinaryImage) -> List[PatchRecord]:
 
     Independent of SEP and MACF: the two persona rejection branches and the USB restore-mode predicate. A restore
     or ramdisk boot already has `rd=md0`, so this family only belongs to the normal-boot plans.
+
+    The persona guards only exist since xnu-10002 (spawn_validate_persona was added with the iOS 17 / macOS
+    Sonoma persona work; xnu-8792/8796 kern_persona.c has no such validator), so pre-10002 kernels skip them.
     """
     layout = MachOLayout.of(image)
-    return _persona_guards(image, layout) + _restore_mode_stub(image, layout)
+    guards: List[PatchRecord] = []
+    if _xnu_version(image) >= _PERSONA_VALIDATION_XNU:
+        guards = _persona_guards(image, layout)
+    return guards + _restore_mode_stub(image, layout)
 
 
 class _LoadW(NamedTuple):
@@ -514,10 +532,16 @@ class _ByteLoad(NamedTuple):
 
 def exception_port(image: core.BinaryImage) -> List[PatchRecord]:
     """Clear the exception-port behavior enforcement byte in __DATA_CONST.
-    Emits kernel.exception-port.behavior-enforcement."""
+    Emits kernel.exception-port.behavior-enforcement.
+
+    The enforcement (and its `com.apple.security.only-one-exception-port` entitlement string) does not exist in
+    pre-xnu-10002 kernels (iOS 16 = xnu-8796 ipc_tt.c has no set_exception_behavior_allowed), so such builds get
+    an empty record set instead of a missing-anchor error."""
     name, anchor_text = _EXCEPTION_PORT_NAME, _EXCEPTION_PORT_ANCHOR
     layout = MachOLayout.of(image)
     anchors = image.find_all(b'\0' + anchor_text.encode() + b'\0')
+    if not anchors and _xnu_version(image) < _PERSONA_VALIDATION_XNU:
+        return []
     anchor = only(anchors)
     if anchor is None:
         if not anchors:

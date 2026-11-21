@@ -211,11 +211,31 @@ def w(v): return struct.pack('<I', v)
 
 
 # ------------------------------------------------------------------------------------------------ ramdisk set
+# Apple built __mac_mount with CONFIG_UNION_MOUNTS enabled up to the iOS 16 kernels (xnu-8796: the union-on-/
+# handling `flags &= ~MNT_UPDATE` is compiled in and there is no MNT_UNION -> EPERM path at all), and disabled it
+# in the newer releases doublera1n supports (iOS 27 = xnu-13432). A pre-_UNION_MOUNT_DISABLED_XNU kernel therefore
+# needs no mount patches at all.
+_UNION_MOUNT_DISABLED_XNU = 10000
+
+
+def _xnu_release(kc):
+    """The integer release number of com.apple.kernel's embedded `xnu-<release>` version string (0 if absent)."""
+    import re
+    im = kc.img('com.apple.kernel')
+    for va in im.cstring_prefix('xnu-'):
+        m = re.match(rb'xnu-(\d+)', kc.d[kc.off(va):kc.off(va) + 24])
+        if m: return int(m.group(1))
+    return 0
+
+
 def find_mount_union(kc):
     """__mac_mount: the only place in XNU with
          A: TBNZ Wf,#5,X              (flags & MNT_UNION)
             ... LDRB Wt,[Xm,#imm] ; TBNZ Wt,#6,Y   (covered vnode's mount has MNT_ROOTFS) within 0x60 of A
-         C: TBZ  Wf,#5,A+4            (second path jumping back right behind A)"""
+         C: TBZ  Wf,#5,A+4            (second path jumping back right behind A)
+
+    Kernels with CONFIG_UNION_MOUNTS enabled (xnu-8796 / iOS 16) have neither site - they handle union mounts
+    natively - so the ramdisk set contributes no mount records for them."""
     im = kc.img('com.apple.kernel')
     va0, arr = words_of(kc, im)
     words = text_words(kc, im)
@@ -230,6 +250,8 @@ def find_mount_union(kc):
               and is_tb(words[r + 4]) and tb_nz(words[r + 4]) and tb_bit(words[r + 4]) == 6
               and (words[r + 4] & 0x1F) == (words[r] & 0x1F)]
         if len(cs) == 1 and len(rs) == 1: hits.append((a, rs[0], cs[0]))
+    if not hits and _xnu_release(kc) < _UNION_MOUNT_DISABLED_XNU:
+        return []
     if len(hits) != 1: raise SystemExit(f"mount union/rootfs: expected 1 site, found {[tuple(map(hex, h)) for h in hits]}")
     a, r, c = hits[0]
     rt = words[r] & 0x1F

@@ -78,5 +78,146 @@
   "originalBytes": "480e0037",
   "replacementBytes": "1f2003d5",
   "summary": "Do not enter the unencrypted-data-volume panic block"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique PACIBSP function with saved x2 out-parameter",
+   "stack result is passed to a lookup call and followed by result/out-parameter guards"
+  ],
+  "id": "kernel.amfi.trust-cache.0",
+  "offset": 34572864,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "5f2403d5",
+  "summary": "Make AMFI trust-cache lookup succeed (word 1/5)"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique PACIBSP function with saved x2 out-parameter",
+   "stack result is passed to a lookup call and followed by result/out-parameter guards"
+  ],
+  "id": "kernel.amfi.trust-cache.1",
+  "offset": 34572868,
+  "originalBytes": "ffc300d1",
+  "replacementBytes": "200080d2",
+  "summary": "Make AMFI trust-cache lookup succeed (word 2/5)"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique PACIBSP function with saved x2 out-parameter",
+   "stack result is passed to a lookup call and followed by result/out-parameter guards"
+  ],
+  "id": "kernel.amfi.trust-cache.2",
+  "offset": 34572872,
+  "originalBytes": "f44f01a9",
+  "replacementBytes": "420000b4",
+  "summary": "Make AMFI trust-cache lookup succeed (word 3/5)"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique PACIBSP function with saved x2 out-parameter",
+   "stack result is passed to a lookup call and followed by result/out-parameter guards"
+  ],
+  "id": "kernel.amfi.trust-cache.3",
+  "offset": 34572876,
+  "originalBytes": "fd7b02a9",
+  "replacementBytes": "400000f9",
+  "summary": "Make AMFI trust-cache lookup succeed (word 4/5)"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique PACIBSP function with saved x2 out-parameter",
+   "stack result is passed to a lookup call and followed by result/out-parameter guards"
+  ],
+  "id": "kernel.amfi.trust-cache.4",
+  "offset": 34572880,
+  "originalBytes": "fd830091",
+  "replacementBytes": "c0035fd6",
+  "summary": "Make AMFI trust-cache lookup succeed (word 5/5)"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "function uniquely owns the Validation Category diagnostic"
+  ],
+  "id": "kernel.amfi.launch-constraints.result",
+  "offset": 34588168,
+  "originalBytes": "7f2303d5",
+  "replacementBytes": "00008052",
+  "summary": "Return success from AMFI launch-constraint validation"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired entry-point stub"
+  ],
+  "id": "kernel.amfi.launch-constraints.return",
+  "offset": 34588172,
+  "originalBytes": "fc6fbaa9",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return immediately after the launch-constraint result"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "unique shared-pointer byte accessor masked to bit zero"
+  ],
+  "id": "kernel.amfi.developer-mode.result",
+  "offset": 18827320,
+  "originalBytes": "48baffb0",
+  "replacementBytes": "20008052",
+  "summary": "Report developer mode enabled"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "paired accessor stub"
+  ],
+  "id": "kernel.amfi.developer-mode.return",
+  "offset": 18827324,
+  "originalBytes": "080d43f9",
+  "replacementBytes": "c0035fd6",
+  "summary": "Return the forced developer-mode result"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "callee of the function owning the code-signature validation diagnostic",
+   "CMP W0,#imm follows a BL and is immediately consumed by B.NE",
+   "fallthrough continues into the function body"
+  ],
+  "id": "kernel.amfi.post-validation.compare",
+  "offset": 34619088,
+  "originalBytes": "1f080071",
+  "replacementBytes": "1f00006b",
+  "summary": "Make the post-validation comparison equal"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "within 80 bytes of the Swift Playgrounds development entitlement xref",
+   "BL is immediately followed by a conditional test of w0 and the two helpers differ"
+  ],
+  "id": "kernel.amfi.dyld-policy.0",
+  "offset": 34619396,
+  "originalBytes": "0cc2c397",
+  "replacementBytes": "20008052",
+  "summary": "Make dyld policy helper 1 succeed"
+ },
+ {
+  "component": "kernelcache",
+  "evidence": [
+   "within 80 bytes of the Swift Playgrounds development entitlement xref",
+   "BL is immediately followed by a conditional test of w0 and the two helpers differ"
+  ],
+  "id": "kernel.amfi.dyld-policy.1",
+  "offset": 34619408,
+  "originalBytes": "f2deff97",
+  "replacementBytes": "20008052",
+  "summary": "Make dyld policy helper 2 succeed"
  }
 ]
