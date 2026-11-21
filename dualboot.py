@@ -655,8 +655,9 @@ DAEMONS = [  # mkdaemon name, stock program, weak dylib (OS B fix loaded into th
      '/private/var/wireless/Library/obfdr.dylib'),
     # wirelessd: same obfdr FDR bypass as CommCenter, for the Wi-Fi/BT calibration ("wlcal").
     # Without it the radio runs on the firmware's default calibration and Wi-Fi is very slow.
-    # Optional: skipped with a warning when this build's rootfs does not carry /usr/libexec/wirelessd.
-    ('wirelessd', '/usr/libexec/wirelessd', '/private/var/wireless/Library/obfdr.dylib'),
+    # The path moved between builds: the first existing candidate wins; if none exists the fix
+    # is skipped with a warning (ensure_daemons) and the resolved path is staged for provision.
+    ('wirelessd', ('/usr/libexec/wirelessd',), '/private/var/wireless/Library/obfdr.dylib'),
     ('securityd', '/usr/libexec/securityd', '/private/var/Keychains/obkeychain.dylib'),
     ('lockdownd', '/usr/libexec/lockdownd', '/private/var/root/Library/Lockdown/obpair.dylib'),
     ('mobileactivationd', '/usr/libexec/mobileactivationd', None),
@@ -664,17 +665,32 @@ DAEMONS = [  # mkdaemon name, stock program, weak dylib (OS B fix loaded into th
 JOBS = ['com.apple.CommCenter', 'com.apple.CoreAuthentication.daemon', 'com.apple.ctkd', 'com.apple.mobile.lockdown',
         'com.apple.securityd']
 
+def resolve_daemon_path(ws, name, path):
+    """The stock device path of a daemon: a str passes through, a tuple picks the first candidate that
+    exists in the rootfs (None when none does). For wirelessd the resolved path is staged for provision."""
+    if isinstance(path, (tuple, list)):
+        resolved = next((p for p in path if os.path.exists(os.path.join(ws.p('rootfs'), p.lstrip('/')))), None)
+        if resolved is None:
+            return None
+        path = resolved
+        if name == 'wirelessd':
+            with open(ws.p('build/daemons/wirelessd.path'), 'w') as f:
+                f.write(path + '\n')
+    return path
+
 def ensure_daemons(ws):
     """Patched daemon copies + job plists in <ws>/build/daemons (rebuilt from the rootfs when it is available)."""
     have_rootfs = os.path.exists(ws.p('rootfs/usr/libexec/securityd'))
     os.makedirs(ws.p('build/daemons'), exist_ok=True)
     for name, path, weak in DAEMONS:
         if have_rootfs:
-            if not os.path.exists(os.path.join(ws.p('rootfs'), path.lstrip('/'))):
+            resolved = resolve_daemon_path(ws, name, path)
+            if resolved is None:
                 if name == 'wirelessd':
-                    warn(f"wirelessd is not at {path} in this rootfs - the Wi-Fi calibration fix is skipped")
+                    warn(f"no wirelessd at {list(path)} in this rootfs - the Wi-Fi calibration fix is skipped")
                     continue
                 die(f"{name} is missing from the rootfs ({ws.p('rootfs')} at {path})")
+            path = resolved
             ws.py('mkdaemon.py', name, path, *(['--weak-dylib', weak] if weak else []), capture=True)
         elif not os.path.exists(ws.p('build/daemons', name)) and name != 'wirelessd':
             die(f"{name} is missing and there is no rootfs ({ws.p('rootfs')}) to build it from")
@@ -702,6 +718,8 @@ def build_stage(ws):
         shutil.copy2(ws.p('build/daemons', name), os.path.join(st, 'daemons', name))
     if os.path.exists(ws.p('build/daemons/wirelessd')):      # optional (rootfs-dependent, see ensure_daemons)
         shutil.copy2(ws.p('build/daemons/wirelessd'), os.path.join(st, 'daemons/wirelessd'))
+    if os.path.exists(ws.p('build/daemons/wirelessd.path')):
+        shutil.copy2(ws.p('build/daemons/wirelessd.path'), os.path.join(st, 'daemons/wirelessd.path'))
     for l in JOBS + ['com.apple.watchdogd']:
         shutil.copy2(ws.p('build/daemons', l + '.plist'), os.path.join(st, 'jobs', l + '.plist'))
     for f in glob.glob(ws.p('build/daemons/com.apple.wirelessd*.plist')):

@@ -61,7 +61,11 @@ FW=/var/jb/System/Library/Frameworks
 inst $P/daemons/ctkd       $FW/CryptoTokenKit.framework/ctkd 755
 inst $P/daemons/coreauthd  $FW/LocalAuthentication.framework/Support/coreauthd 755
 inst $P/daemons/commcenter $FW/CoreTelephony.framework/Support/CommCenter 755
-[[ -f $P/daemons/wirelessd ]] && inst $P/daemons/wirelessd /var/jb/usr/libexec/wirelessd 755   # Wi-Fi calibration fix (optional)
+# wirelessd: the Wi-Fi calibration fix (optional; the resolved stock path comes from wirelessd.path)
+if [[ -f $P/daemons/wirelessd && -f $P/daemons/wirelessd.path ]]; then
+    wd=$(< $P/daemons/wirelessd.path)
+    inst $P/daemons/wirelessd "/var/jb${wd}" 755
+fi
 inst $P/daemons/securityd  /var/jb/usr/libexec/securityd 755
 inst $P/daemons/lockdownd  /var/jb/usr/libexec/lockdownd 755
 mkdir -p /var/jb/Library/OSBDaemons

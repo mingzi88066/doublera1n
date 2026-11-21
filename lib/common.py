@@ -258,8 +258,12 @@ class SSH:
         t0 = time.time()
         while time.time() - t0 < timeout:
             self._iproxy()
-            r = subprocess.run(['ssh', *self._base(), '-p', str(SSH_PORT), 'root@localhost', 'echo ok'],
-                               capture_output=True, text=True, timeout=30)
+            try:
+                r = subprocess.run(['ssh', *self._base(), '-p', str(SSH_PORT), 'root@localhost', 'echo ok'],
+                                   capture_output=True, text=True, timeout=30)
+            except subprocess.TimeoutExpired:        # iproxy up, phone not answering SSH yet: keep waiting
+                time.sleep(5)
+                continue
             if r.returncode == 0 and 'ok' in r.stdout:
                 return True
             time.sleep(5)

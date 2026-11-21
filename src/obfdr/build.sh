@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the CommCenter-only FDR sik-verification bypass for both device ABIs,
+# Build the CommCenter/wirelessd FDR sik-verification bypass for both device ABIs,
 # and obradio, the airplane-mode toggle used to force a baseband reset while
 # testing this path. Only obfdr.dylib is deployed; obradio is a manual tool.
 #
@@ -65,6 +65,8 @@ for key in CertificateSecurityMode EffectiveSecurityModeSEP EffectiveProductionS
 done
 strings -a "$OUT" | grep -q '^CommCenter$' \
     || { echo "[!] the CommCenter process guard is absent" >&2; exit 1; }
+strings -a "$OUT" | grep -q '^wirelessd$' \
+    || { echo "[!] the wirelessd process guard is absent" >&2; exit 1; }
 strings -a "$OUT" | grep -q '^/private/var/wireless/Library/\.obfdr-sik-bypass$' \
     || { echo "[!] the FDR marker gate is absent" >&2; exit 1; }
 # The ARI tracer must stay gated on its own Data-volume marker, and must still
@@ -77,7 +79,7 @@ strings -a "$OUT" | grep -q '^_ZN3Ari9LogConfigEjPFvjPKcEPFvi' \
 [ -z "$("$LDID" -e "$OUT")" ] \
     || { echo "[!] obfdr unexpectedly carries entitlements" >&2; exit 1; }
 
-echo "[+] $OUT ($archs, CommCenter-only marker-gated FDR sik bypass)"
+echo "[+] $OUT ($archs, marker-gated FDR sik bypass for CommCenter + wirelessd)"
 
 # obradio. arm64e only: it runs on the device by hand, never in the arm64 slice
 # of an injected payload. RadiosPreferences is private, so it is resolved at
