@@ -4,7 +4,7 @@
 # touch (DCP) and app crashes. Run as root (dualboot.py diag pipes it over SSH as `zsh -s`).
 # Read-only: nothing on the phone is modified.
 export PATH=/var/jb/usr/bin:/var/jb/bin:/var/jb/usr/sbin:/var/jb/sbin:/usr/bin:/bin:/usr/sbin:/sbin
-emulate -L zsh; setopt no_err_exit
+emulate -L zsh; setopt no_err_exit null_glob   # null_glob: missing dirs must not abort the probe loop
 LOGWIN=15m   # window scanned in the unified log
 
 sec() { print -r -- "\n================ $* ================"; }
@@ -67,12 +67,14 @@ log show --last $LOGWIN --style syslog 2>/dev/null \
   | grep -viE "CommCenter.*bbcl" | tail -15 | while IFS= read -r l; do line "$l"; done
 line "-- which daemon owns Wi-Fi calibration here (this rootfs has no wirelessd)? --"
 line "launchd jobs matching wireless/wifi:"
-find /System/Library/LaunchDaemons /var/jb/Library/LaunchDaemons -maxdepth 1 -name '*ireless*' -o -maxdepth 1 -name '*ifid*' 2>/dev/null | while IFS= read -r l; do line "  $l"; done
+ls /System/Library/LaunchDaemons 2>/dev/null | grep -iE 'wireless|wifi|wlcal' | while IFS= read -r l; do line "  $l"; done
+line "program paths of those jobs:"
+for p in /System/Library/LaunchDaemons/*[Ww]ireless* /System/Library/LaunchDaemons/*[Ww]ifi*; do
+  grep -a -o '<string>/[^<]*' $p 2>/dev/null | sed 's/<string>//' | head -3 | while IFS= read -r l; do line "  $p -> $l"; done
+done
 line "binaries containing the wlcal string (the calibration consumer):"
-for d in /usr/libexec /usr/sbin /usr/libexec/lowpowerd; do
-  grep -a -l -s wlcal $d/* 2>/dev/null
-done | head -8 | while IFS= read -r l; do line "  wlcal in: $l"; done
-for f in /usr/libexec/wirelessd /usr/sbin/wirelessd /usr/libexec/wifid /var/jb/usr/libexec/wirelessd; do
+grep -a -rls wlcal /usr/libexec /usr/sbin /usr/libexec/lowpowerd 2>/dev/null | head -8 | while IFS= read -r l; do line "  wlcal in: $l"; done
+for f in /usr/libexec/wirelessd /usr/sbin/wirelessd /usr/libexec/wifid /usr/libexec/WirelessRadioManagerd /var/jb/usr/libexec/wirelessd; do
   [[ -e $f ]] && line "  exists: $f"
 done
 line "if nothing above matches and Wi-Fi is slow-but-associated, the radio runs on default"
