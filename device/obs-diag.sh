@@ -18,10 +18,30 @@ line "date       : $(date)"
 line "build      : $(sw_vers -productVersion 2>/dev/null) ($(sw_vers -buildVersion 2>/dev/null))"
 line "uptime     : $(uptime)"
 line "data volume: $(mount 2>/dev/null | grep 'on /private/var ' | head -1)"
+is_running logd && line "logd: running" || line "logd: NOT RUNNING"
+
+# log show must actually produce output on this bootstrap; if not, every log-based
+# section below is blind and says "no errors" while knowing nothing.
+_logtest=$(log show --last 2m --style syslog 2>/dev/null | grep -c .)
+if [[ $_logtest -eq 0 ]]; then
+  line "WARNING: 'log show' returns no lines - the unified-log sections below are BLIND,"
+  line "not clean. Trying the raw diagnostics store instead (/var/db/diagnostics)."
+  LOGSRC=$(ls -t /private/var/db/diagnostics/Persist/* 2>/dev/null | head -4)
+else
+  LOGSRC=""
+fi
+# llines "pattern" : grep the working log source(s). Used instead of bare log show.
+llines() {
+  if [[ -n ${LOGSRC:-} ]]; then
+    grep -a -h -iE "$1" $LOGSRC 2>/dev/null | tail -40
+  else
+    log show --last $LOGWIN --style syslog 2>/dev/null | grep -iE "$1"
+  fi
+}
 
 sec "activation (hactivation)"
 is_running mobileactivationd && line "mobileactivationd: running" || line "mobileactivationd: NOT RUNNING"
-log show --last $LOGWIN --style syslog 2>/dev/null | grep -iE "hacthook|should_hactivate|ActivationState|dealwith_activation" | tail -6 | while IFS= read -r l; do line "$l"; done
+llines "hacthook|should_hactivate|ActivationState|dealwith_activation" | tail -6 | while IFS= read -r l; do line "$l"; done
 line "(obkeychain/mkdaemon check: mobileactivationd must answer Activated; see hacthook lines above)"
 
 sec "keychain (securityd + obkeychain/obacl)"
@@ -29,7 +49,7 @@ for f in /private/var/Keychains/.obkeychain /private/var/Keychains/obkeychain.ma
   [[ -e $f ]] && line "$f : $(ls -ld $f)" || line "$f : MISSING"
 done
 is_running securityd && line "securityd: running" || line "securityd: NOT RUNNING"
-log show --last $LOGWIN --style syslog 2>/dev/null | grep -E "obkeychain|obacl" | tail -8 | while IFS= read -r l; do line "$l"; done
+llines "obkeychain|obacl" | tail -8 | while IFS= read -r l; do line "$l"; done
 kcq 2>/dev/null | head -12 | while IFS= read -r l; do line "kcq: $l"; done
 
 sec "iCloud / Apple ID (akd + accountsd)"
@@ -37,9 +57,8 @@ for d in akd accountsd identityservicesd appleaccountsd idmsdaemon; do
   is_running $d && line "$d: running" || line "$d: NOT RUNNING"
 done
 line "-- keychain/sign-in errors in the last $LOGWIN (the interesting part for a failed sign-in) --"
-log show --last $LOGWIN --style syslog 2>/dev/null \
-  | grep -iE "akd|accountsd|idms|AppleAccount|GSA|gsa\.apple\.com|IdentityServices" \
-  | grep -iE "error|fail|-25291|-25330|-26275|NoIdentity|denied|AuthNeeded|AKAuthentication|AWDSession|activation" \
+llines "akd|accountsd|idms|AppleAccount|GSA|gsa\.apple\.com|IdentityServices|appstored|StoreKit|AppStore" \
+  | grep -iE "error|fail|-25291|-25330|-26275|NoIdentity|denied|AuthNeeded|AKAuthentication|AWDSession|activation|timed out|cannot|refus" \
   | tail -40 | while IFS= read -r l; do line "$l"; done
 line "-- how to read this --"
 line "-25291 = keychain class key unavailable (obkeychain must cover the bag/class; needs a provision --apply)"
@@ -62,9 +81,14 @@ fi
 line "-- DNS latency (dnsq) --"
 dnsq gsa.apple.com apple.com setup.icloud.com 2>/dev/null | while IFS= read -r l; do line "$l"; done
 line "-- Wi-Fi calibration evidence (obfdr / wlcal / sik) --"
-log show --last $LOGWIN --style syslog 2>/dev/null \
-  | grep -iE "obfdr|wlcal|calibration|not found in FDR|sik" \
-  | grep -viE "CommCenter.*bbcl" | tail -15 | while IFS= read -r l; do line "$l"; done
+llines "obfdr|wlcal|calibration|not found in FDR|sik" | grep -viE "CommCenter.*bbcl" | tail -15 | while IFS= read -r l; do line "$l"; done
+line "-- download throughput (quantifies 'slow Wi-Fi') --"
+if (( $+commands[curl] )); then
+  curl -sS -o /dev/null --max-time 20 -w '  %{speed_download} B/s over %{time_total}s (http %{http_code})\n' \
+    'https://speed.cloudflare.com/__down?bytes=10000000' 2>&1 | while IFS= read -r l; do line "$l"; done
+else
+  line "(no curl in this userland)"
+fi
 line "-- which daemon owns Wi-Fi calibration here (this rootfs has no wirelessd)? --"
 line "launchd jobs matching wireless/wifi:"
 ls /System/Library/LaunchDaemons 2>/dev/null | grep -iE 'wireless|wifi|wlcal' | while IFS= read -r l; do line "  $l"; done
@@ -83,16 +107,14 @@ for f in /usr/libexec/wirelessd /usr/sbin/wirelessd /usr/libexec/wifid /usr/libe
   [[ -e $f ]] && line "  exists: $f"
 done
 line "recent firmware-loader / radio calibration log lines:"
-log show --last $LOGWIN --style syslog 2>/dev/null \
-  | grep -iE "wifiFirmwareLoader|WirelessRadioManager|firmware.*load|radio.*calib" \
+llines "wifiFirmwareLoader|WirelessRadioManager|firmware.*load|radio.*calib" \
   | grep -iE "error|fail|calib|unseal|fdr|refus" | tail -10 | while IFS= read -r l; do line "$l"; done
 line "if nothing above matches and Wi-Fi is slow-but-associated, the radio runs on default"
 line "calibration (FDR unseal fix has no target on this build); send this section upstream."
 
 sec "touch (DCP / HID)"
 line "-- touch/DCP faults in the last $LOGWIN --"
-log show --last $LOGWIN --style syslog 2>/dev/null \
-  | grep -iE "DCP|Multitouch|AppleMultitouch|TouchEvents|hid.*reset|SPU.*(fault|panic|error)" \
+llines "DCP|Multitouch|AppleMultitouch|TouchEvents|hid.*reset|SPU.*(fault|panic|error)" \
   | grep -iE "error|fail|reset|fault|panic|timeout|dead|disconnect" \
   | tail -25 | while IFS= read -r l; do line "$l"; done
 line "repeated DCP resets/timeouts here line up with the reported touch dropouts; capture a few of"
@@ -107,8 +129,8 @@ if [[ -d $CR ]]; then
   newest=$(ls -t $CR/*.ips 2>/dev/null | head -1)
   if [[ -n $newest ]]; then
     line "-- most recent crash: $newest (header) --"
-    head -c 2048 $newest | tr ',' '\n' | grep -E '"(app_name|process|exception|terminationReason|bug_type|faultingThread|exceptionReason)"' \
-      | head -12 | while IFS= read -r l; do line "$l"; done
+    head -c 4096 $newest | tr ',' '\n' | grep -E '"(app_name|process|exception|terminationReason|bug_type|faultingThread|exceptionReason|namespace|indicator|subtype|signal)"' \
+      | head -14 | while IFS= read -r l; do line "$l"; done
   fi
 else
   line "no CrashReporter directory"
