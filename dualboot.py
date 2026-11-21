@@ -147,7 +147,12 @@ def only_installed_ws(ecid=None):
     if len(alls) != 1:
         die("need exactly one installed workspace (use --ecid)")
     d, s = alls[0]
-    return Workspace(os.path.basename(d).split('-')[0], find_profile(s['board'], s['build']))
+    prof = find_profile(s['board'], s['build'])
+    if prof is None:
+        die(f"the workspace for {s['board']} {s['build']} has no version profile in profiles/ - generate it again "
+            f"with: ./dualboot.py profile --ipsw <the {s['build']} IPSW>   (or copy profiles/{s['board']}-{s['build']} "
+            f"from the previous clone)")
+    return Workspace(os.path.basename(d).split('-')[0], prof)
 
 def cmd_rebuild(a):
     ws = only_installed_ws(a.ecid)
