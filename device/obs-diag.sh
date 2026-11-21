@@ -10,29 +10,31 @@ LOGWIN=15m   # window scanned in the unified log
 sec() { print -r -- "\n================ $* ================"; }
 line() { print -r -- "  $*"; }
 
+# the OS B userland ships no pgrep/awk/ping: use ps ax + grep instead.
+is_running() { ps ax 2>/dev/null | grep -Eq "/$1( |$)"; }
+
 sec "device"
 line "date       : $(date)"
 line "build      : $(sw_vers -productVersion 2>/dev/null) ($(sw_vers -buildVersion 2>/dev/null))"
 line "uptime     : $(uptime)"
-line "data volume: $(mount | awk '/on \/private\/var /{print $1}')"
+line "data volume: $(mount 2>/dev/null | grep 'on /private/var ' | head -1)"
 
 sec "activation (hactivation)"
-pgrep -x mobileactivationd >/dev/null && line "mobileactivationd: running (pid $(pgrep -x mobileactivationd))" \
-  || line "mobileactivationd: NOT RUNNING"
+is_running mobileactivationd && line "mobileactivationd: running" || line "mobileactivationd: NOT RUNNING"
 log show --last $LOGWIN --style syslog 2>/dev/null | grep -iE "hacthook|should_hactivate|ActivationState|dealwith_activation" | tail -6 | while IFS= read -r l; do line "$l"; done
 line "(obkeychain/mkdaemon check: mobileactivationd must answer Activated; see hacthook lines above)"
 
 sec "keychain (securityd + obkeychain/obacl)"
 for f in /private/var/Keychains/.obkeychain /private/var/Keychains/obkeychain.master /private/var/Keychains/obkeychain.dylib; do
-  [[ -e $f ]] && line "$f : $(stat -f '%Su:%Sg %Sp' $f)" || line "$f : MISSING"
+  [[ -e $f ]] && line "$f : $(ls -ld $f)" || line "$f : MISSING"
 done
-pgrep -x securityd >/dev/null && line "securityd: running (pid $(pgrep -x securityd))" || line "securityd: NOT RUNNING"
+is_running securityd && line "securityd: running" || line "securityd: NOT RUNNING"
 log show --last $LOGWIN --style syslog 2>/dev/null | grep -E "obkeychain|obacl" | tail -8 | while IFS= read -r l; do line "$l"; done
 kcq 2>/dev/null | head -12 | while IFS= read -r l; do line "kcq: $l"; done
 
 sec "iCloud / Apple ID (akd + accountsd)"
 for d in akd accountsd identityservicesd appleaccountsd idmsdaemon; do
-  pgrep -x $d >/dev/null && line "$d: running" || line "$d: NOT RUNNING"
+  is_running $d && line "$d: running" || line "$d: NOT RUNNING"
 done
 line "-- keychain/sign-in errors in the last $LOGWIN (the interesting part for a failed sign-in) --"
 log show --last $LOGWIN --style syslog 2>/dev/null \
@@ -50,18 +52,31 @@ sec "network (Wi-Fi)"
 line "-- en0 --"
 ifconfig en0 2>/dev/null | grep -E "status|ssid|media|inet " | while IFS= read -r l; do line "$l"; done
 line "-- default route + gateway reachability --"
-r=$(route -n get default 2>/dev/null | awk '/gateway/{print $2}'); line "gateway: ${r:-none}"
-[[ -n $r ]] && ping -c 3 -t 5 $r 2>&1 | tail -2 | while IFS= read -r l; do line "ping gw: $l"; done
-ping -c 3 -t 5 1.1.1.1 2>&1 | tail -2 | while IFS= read -r l; do line "ping 1.1.1.1: $l"; done
+r=$(route -n get default 2>/dev/null | sed -n 's/.*gateway: //p' | head -1); line "gateway: ${r:-none}"
+if (( $+commands[ping] )); then
+  [[ -n $r ]] && ping -c 3 -t 5 $r 2>&1 | tail -2 | while IFS= read -r l; do line "ping gw: $l"; done
+  ping -c 3 -t 5 1.1.1.1 2>&1 | tail -2 | while IFS= read -r l; do line "ping 1.1.1.1: $l"; done
+else
+  line "(no ping in this userland - use the DNS latency below as the reachability check)"
+fi
 line "-- DNS latency (dnsq) --"
 dnsq gsa.apple.com apple.com setup.icloud.com 2>/dev/null | while IFS= read -r l; do line "$l"; done
 line "-- Wi-Fi calibration evidence (obfdr / wlcal / sik) --"
 log show --last $LOGWIN --style syslog 2>/dev/null \
   | grep -iE "obfdr|wlcal|calibration|not found in FDR|sik" \
   | grep -viE "CommCenter.*bbcl" | tail -15 | while IFS= read -r l; do line "$l"; done
-line "if wirelessd never logs obfdr answers: wirelessd has no obfdr weak dylib -> provision (needs a"
-line "rebuild on the Mac: ./src/build.sh, then ./dualboot.py provision --apply). Slow-but-associated"
-line "Wi-Fi with no obfdr/wlcal lines at all = the radio runs on default calibration."
+line "-- which daemon owns Wi-Fi calibration here (this rootfs has no wirelessd)? --"
+line "launchd jobs matching wireless/wifi:"
+find /System/Library/LaunchDaemons /var/jb/Library/LaunchDaemons -maxdepth 1 -name '*ireless*' -o -maxdepth 1 -name '*ifid*' 2>/dev/null | while IFS= read -r l; do line "  $l"; done
+line "binaries containing the wlcal string (the calibration consumer):"
+for d in /usr/libexec /usr/sbin /usr/libexec/lowpowerd; do
+  grep -a -l -s wlcal $d/* 2>/dev/null
+done | head -8 | while IFS= read -r l; do line "  wlcal in: $l"; done
+for f in /usr/libexec/wirelessd /usr/sbin/wirelessd /usr/libexec/wifid /var/jb/usr/libexec/wirelessd; do
+  [[ -e $f ]] && line "  exists: $f"
+done
+line "if nothing above matches and Wi-Fi is slow-but-associated, the radio runs on default"
+line "calibration (FDR unseal fix has no target on this build); send this section upstream."
 
 sec "touch (DCP / HID)"
 line "-- touch/DCP faults in the last $LOGWIN --"
