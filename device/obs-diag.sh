@@ -70,13 +70,22 @@ line "launchd jobs matching wireless/wifi:"
 ls /System/Library/LaunchDaemons 2>/dev/null | grep -iE 'wireless|wifi|wlcal' | while IFS= read -r l; do line "  $l"; done
 line "program paths of those jobs:"
 for p in /System/Library/LaunchDaemons/*[Ww]ireless* /System/Library/LaunchDaemons/*[Ww]ifi*; do
-  grep -a -o '<string>/[^<]*' $p 2>/dev/null | sed 's/<string>//' | head -3 | while IFS= read -r l; do line "  $p -> $l"; done
+  grep -a -o '<string>/[^<]*' $p 2>/dev/null | sed 's/<string>//' | head -4 | while IFS= read -r l; do line "  ${p:t} -> $l"; done
 done
 line "binaries containing the wlcal string (the calibration consumer):"
 grep -a -rls wlcal /usr/libexec /usr/sbin /usr/libexec/lowpowerd 2>/dev/null | head -8 | while IFS= read -r l; do line "  wlcal in: $l"; done
-for f in /usr/libexec/wirelessd /usr/sbin/wirelessd /usr/libexec/wifid /usr/libexec/WirelessRadioManagerd /var/jb/usr/libexec/wirelessd; do
+line "frameworks containing wlcal / FDR usage (Wi-Fi/BT stack):"
+grep -a -rls wlcal /System/Library/PrivateFrameworks/WiFi* /System/Library/PrivateFrameworks/Wireless* 2>/dev/null \
+  | head -8 | while IFS= read -r l; do line "  wlcal in: $l"; done
+grep -a -rls FDRUnseal /System/Library/PrivateFrameworks/WiFi* /System/Library/PrivateFrameworks/Wireless* 2>/dev/null \
+  | head -4 | while IFS= read -r l; do line "  FDRUnseal in: $l"; done
+for f in /usr/libexec/wirelessd /usr/sbin/wirelessd /usr/libexec/wifid /usr/libexec/WirelessRadioManagerd /usr/libexec/wifiFirmwareLoader /var/jb/usr/libexec/wirelessd; do
   [[ -e $f ]] && line "  exists: $f"
 done
+line "recent firmware-loader / radio calibration log lines:"
+log show --last $LOGWIN --style syslog 2>/dev/null \
+  | grep -iE "wifiFirmwareLoader|WirelessRadioManager|firmware.*load|radio.*calib" \
+  | grep -iE "error|fail|calib|unseal|fdr|refus" | tail -10 | while IFS= read -r l; do line "$l"; done
 line "if nothing above matches and Wi-Fi is slow-but-associated, the radio runs on default"
 line "calibration (FDR unseal fix has no target on this build); send this section upstream."
 
