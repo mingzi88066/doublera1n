@@ -31,7 +31,8 @@ ARM64, MachOLayout = core.ARM64, core.MachOLayout
 
 COMPONENT = 'kernelcache'
 PREFIXES = {'amcc_log_only': ('kernel.amcc.',), 'iop_state_timeout': ('kernel.iop.',),
-            'sio_protocol_accept': ('kernel.iop.',), 'apfs_root_live_fs': ('kernel.apfs.',)}
+            'sio_protocol_accept': ('kernel.iop.',), 'apfs_root_live_fs': ('kernel.apfs.',),
+            'insecure_boot_null': ('kernel.apfs.',)}
 
 ANCHOR = 'Ignored %s'
 SEARCH_BACK = 0x30          # the guard sits immediately before the log block
@@ -41,6 +42,7 @@ MAX_FRAGMENT = 0x200        # a cold panic fragment is far shorter than this
 
 SIO_ANCHOR = 'Unexpected SIO Protocol version %u - %u'
 APFS_ANCHOR = 'Failed to find the root snapshot'
+INSECURE_ANCHOR = 'insecure boot is enabled'
 
 
 def _c_string_start(image: core.BinaryImage, offset: int) -> int:
@@ -290,3 +292,86 @@ def apfs_root_live_fs(image: core.BinaryImage) -> List[PatchRecord]:
                          f'conditional branch at {guard:#x} enters the panic block at {cold_start:#x}',
                          f'{len(guards)} entry point(s) patched'))
             for index, guard in enumerate(guards)]
+
+
+def _adrp_imm(word: int):
+    """Decode an ADRP: return (page-aligned target when evaluated at `at`,才能真正判断)."""
+    return word & 0x9F00_001F == 0x9000_0000
+
+
+def insecure_boot_null(image: core.BinaryImage) -> List[PatchRecord]:
+    """Skip the NULL vtbl dereference in the insecure-boot path when iBoot forwarded no root hash.
+
+    With the APFS root-live-fs patch applied, a mixed boot that has no `system-volume-auth-blob` reaches
+    `insecure_boot_enabled()`. That routine reports success but leaves its output object NULL because no root
+    hash was forwarded; the caller then does `ldr x0,[sp,#slot]; ldr x16,[x0]; ...; blraa x8,x17` and faults on
+    `ldr x16,[x0]` with FAR 0. The function already has a merge point a few instructions later (the failure arm
+    reconverges before the frame restore), so turn the dereference into `cbz x0, <merge>`: NULL skips the whole
+    vtable call, non-NULL keeps the original path byte-for-byte.
+
+    Located semantically: unique ADRP+ADD xref to the "insecure boot is enabled" phrase, then the nearest
+    preceding `ldr xN,[sp,#slot]` whose next instruction is `ldr xM,[xN]` (a PAC vtbl deref, followed within
+    0x20 by AUDA + BLRAA). The merge point is the unconditional branch's landing pad after the BLRA.
+    """
+    layout = MachOLayout.of(image)
+    starts = {_c_string_start(image, hit)
+              for hit in image.find_all_utf8(INSECURE_ANCHOR, nul_terminated=False)}
+    if len(starts) != 1:
+        raise PatchfinderError.ambiguous_anchor(INSECURE_ANCHOR, len(starts))
+    references = layout.adrp_add_references(starts.pop())
+    if len(references) != 1:
+        raise PatchfinderError.ambiguous_anchor(f'insecure-boot xref: {INSECURE_ANCHOR}', len(references))
+    xref = references[0].adrp_offset
+
+    sites = []
+    # The deref sits just AFTER the phrase's ADRP+ADD (the log is emitted before the failing call), so scan a
+    # window centred on the xref rather than behind it.
+    for slot in range(max(0, xref - 0x80), xref + 0x100, 4):
+        word = image.read_u32(slot)
+        # ldr xN, [sp, #imm12]  (unsigned offset 64-bit, Rn=31)
+        if word & 0xFFC0_0000 != 0xF940_0000 or (word >> 5) & 0x1f != 31:
+            continue
+        reg = word & 0x1f
+        nxt = image.read_u32(slot + 4)
+        # ldr xM, [xN]  (unsigned offset imm12=0, Rn must equal reg from the slot load)
+        if nxt & 0xFFC0_0000 != 0xF940_0000 or (nxt >> 5) & 0x1f != reg or (nxt >> 10) & 0xfff != 0:
+            continue
+        # confirm the PAC vtable indirect call (BLRAA/BLRAB: 0xD63Fxxxx / 0xD73Fxxxx) just after
+        window = image.bytes_at(slot + 8, 0x30)
+        words = [int.from_bytes(window[i:i + 4], 'little') for i in range(0, len(window), 4)]
+        if not any((w >> 16) in (0xD63F, 0xD73F) for w in words):
+            continue
+        sites.append((slot, slot + 4))
+    sites = sorted(set(sites))
+    if len(sites) != 1:
+        if not sites:
+            raise PatchfinderError.no_candidate(f'insecure-boot NULL vtbl deref for: {INSECURE_ANCHOR}')
+        raise PatchfinderError.ambiguous_candidate(f'insecure-boot NULL vtbl deref for: {INSECURE_ANCHOR}',
+                                                   [d for _, d in sites])
+    slot, deref = sites[0]
+    reg = image.read_u32(slot) & 0x1f
+
+    # merge point: the landing pad of the first unconditional `b` after the BLRA sequence
+    merge = None
+    for offset in range(deref + 8, deref + 0x40, 4):
+        word = image.read_u32(offset)
+        if word & 0xFC00_0000 == 0x1400_0000:  # B (imm26)
+            delta = word & 0x03FF_FFFF
+            if delta & 0x0200_0000:
+                delta -= 0x0400_0000
+            merge = offset + delta * 4
+            break
+    if merge is None or not (deref < merge < len(image.data)):
+        raise PatchfinderError.no_candidate(f'insecure-boot merge point after {deref:#x}')
+
+    # cbz xN, <merge>  (imm19 = (merge - deref)/4, signed)
+    delta = (merge - deref) // 4
+    if not 0 < delta < 0x8_0000:
+        raise PatchfinderError.invalid_fixture(f'insecure-boot merge point out of cbz range: {merge:#x}')
+    cbz = 0xB400_0000 | (delta << 5) | reg
+    return [_word_patch(image, 'kernel.apfs.insecure-boot-null', deref, cbz,
+                        'Skip the NULL vtbl dereference when insecure boot has no forwarded root hash',
+                        (f'diagnostic phrase: {INSECURE_ANCHOR}',
+                         f'unique ADRP+ADD reference at {xref:#x}',
+                         f'PAC vtbl deref at {deref:#x} reads the object loaded at {slot:#x}',
+                         f'merge point at {merge:#x} reconverges the existing failure arm'))]

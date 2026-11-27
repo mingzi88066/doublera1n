@@ -160,3 +160,92 @@ run8 的日志因两个串口捕获进程同时写同一文件而交错损坏，
 3. 上面两条都通了，才谈得上 `os2` 的 jbinit/obhook 移植（现在那套 payload 是 27.x 的二进制）。
 
 换句话说：路线 B 的前半段（启动协议）已经验证可行，后半段（用户态 + 存储）是新的工程量，不是配置问题。
+
+## run 9：APFS 双入口补丁确认生效，内核第一次走到 BSD root（干净日志）
+
+run8 的日志因两个串口进程同时写同一文件而交错损坏。run9 用原子脚本（`~/dualboot-work/mix-apfs/run9_atomic.py`：
+同一进程内先开串口、确认可写、再发启动链、持续 pump 到 panic）重跑，拿到 58KB 干净日志
+（`docs/logs/route-b-run9-apfs-bypass.log`）。结论明确：
+
+- `kernel.apfs.root-from-live-fs.{0,1}` **确实生效**：
+  `Failed to find the root snapshot ... Rooting from the live fs of a sealed volume is not allowed on a RELEASE build`
+  这条 panic 一次都没出现；
+- 内核往下走到 `Got boot device = ... AppleANS2CGNVMeController ... Container@1`、`BSD root: disk0s1, major 1, minor 1`，
+  然后 `apfs_vfsop_mountroot:2653: apfs: mountroot called!`，`disk1s1 mounting volume System`；
+- 到 `insecure_boot_enabled:10739: ================ insecure boot is enabled ================` 之后，
+  内核死在一个新的 data abort：`pc 0xfffffff028e87a48`（slide 后 = 文件偏移 `0x307ba48`），
+  `far 0x0000000000000000`、`esr 0x96000005`。
+
+根因是补丁链的第二环：`import_iboot_forwarded_roothash: could not retrieve system-volume-auth-blob from device tree`
+→ 没有 root hash 转发 → `insecure_boot_enabled()` 返回成功却没写出它的对象指针 →
+调用方 `ldr x0,[sp,#0x480]; ldr x16,[x0]; ...; blraa x8,x17` 在 `ldr x16,[x0]` 解引用 NULL。
+反汇编确认 `0x307ba48` 就是那条 `ldr x16,[x0]`，其后 0x20 内是 `autda` + `blraa` 的 PAC 虚调用序列。
+
+这一轮把上一节"run8 无法确认落点"的疑问彻底回答了：**APFS 补丁是对的，墙在下一层**。
+
+### 第五个诊断补丁：`kernel.apfs.insecure-boot-null`
+
+`lib/patchfinder/kernel_amcc.py` 新增 `insecure_boot_null()`：按语义定位（唯一
+`insecure boot is enabled` 字符串 xref → 前面的 `ldr xN,[sp,#slot]` + `ldr xM,[xN]` PAC 解引用 →
+后面的 `blraa` 指纹 → BLRA 之后的失败汇合点），把 `ldr xM,[xN]` 换成 `cbz xN,<merge>`：
+对象为 NULL 时跳过整段虚调用、落到已存在的失败分支；非 NULL 时原路径不变。
+16.1 命中 `0x307ba48`（`0xf9400010` → `0xb40003a0`），27.0.1 上 `0x2ff824c` 也有同构位置——
+说明定位是语义性的，不是为 16.1 硬编码。`mix-null` 构建里五补丁共存，23 处修改。
+
+## 用户态墙的本质（探索代理核查，run10 前的架构结论）
+
+对仓库 os2 安装链路的只读核查纠正了一个此前文档没说清的事实：
+
+- **OS2System 的内容不是 iBoot/ramdisk 写的**，而是 `stage_os2()`（`dualboot.py:928-986`）在**已经跑起来的
+  2nd Data（27.x）**上通过 SSH `tar | tar` 灌进去的：rootfs → OS2System、`/private/var` → OS2Data、
+  OS 与 App cryptex → Preboot。卷本身由 `src/os2vol.c` 用 `newfs_apfs -A`（不加密、无 role 冲突）创建。
+- 仓库里**没有任何创建 APFS 快照或生成 `system-volume-auth-blob`/roothash 的代码**；项目原本就靠内核补丁
+  （`kernel.panic.root-snapshot`）和 jbinit 的 live-fs union mount（`src/jbinit/main.c:126-145`）绕开 SSV 校验。
+  因此 16.1 内核报 `could not retrieve system-volume-auth-blob` 并非配置漏了，而是这套双卷方案的设计使然。
+- 用 `os2 install` 直接装 16.1 被三处硬阻塞：precheck、`mkprofile`（kernel-boot-jit 无候选）、
+  `prepare_iboot`（16.1 iBSS/iBEC 带 KBAG、GID 加密，`patch_iboot.py` 无法补丁）。
+  `--skip-precheck` 只能过第一关。
+
+所以路线 B 的天花板不是"再补一个 panic"能推开的：**OS2System 里现在是 27.x 用户态，要让 16.1 内核真正起来，
+必须先用 SSH 把 16.1 的 System/Data 灌进 OS2System/OS2Data**（`stage_os2()` 版流程，可复用），
+而不是继续在内核里绕过 mountroot。
+
+## run 10：NULL 补丁生效，内核第一次启动 PID 1 init —— 用户态墙被实测确认
+
+`mix-null` 内核（五补丁）在 DFU 里重跑两次。run10 第一次被一个更早的偶发死锁截断
+（`Ticket spinlock ... current owner: 0 (on CPU -1)`，死在 `AppleM2ScalerCSCHal::initScalerPropertiesAndExtents`，
+与补丁无关的启动竞态）；run10b（日志 `docs/logs/route-b-run10-init-sigkill.log`）干净跑完，是整条路线里走得最远的一次：
+
+- `kernel.apfs.insecure-boot-null` **生效**：`insecure boot is enabled` 之后没有再出现 run9 的 data abort，
+  内核越过了 NULL 虚表解引用；
+- 走完 `apfs_vfsop_mountroot:2653` → `disk1s1 mounting volume System` → `insecure boot is enabled` →
+  `AppleAstrisGpioProbe::platformInit`；
+- 内核创建了 **PID 1 `init`**（paniclog 里 `Panicked task ... pid 1: init`），随即：
+
+```
+panic(cpu 4): unexpected SIGKILL of init with reason -- namespace 9 code 0x1 description none
+```
+
+这是 XNU 在 `init`(launchd) 于启动阶段意外退出时的标准 panic。`namespace 9 code 0x1` 是 task 被强制终止。
+根因与探索代理的预测完全一致：**OS2System 卷里装的是 27.x 的 launchd / dyld shared cache / 系统二进制，
+16.1 内核无法把它当自己的用户态启动**。
+
+至此路线 B 的每一个内核层障碍（AMCC、IOP 超时、SIO 版本、APFS 快照、insecure-boot NULL）都已用语义补丁逐一
+定位并跨过，剩下的 `init` SIGKILL 不是内核配置问题，**只能靠把 16.1 用户态真正灌进 OS2System 解决**。
+继续在内核里加补丁不会有意义——下一道墙还是同一个用户态。
+
+### 转向：把 16.1 用户态灌进 OS2System（下一步的主线）
+
+`os2 install` 的现有流程（`stage_os2()`）在 2nd Data（27.x）运行时通过 SSH 把第二 IPSW 的
+rootfs/var/cryptex 灌进 OS2System/OS2Data，但它对 16.1 有三处硬阻塞（precheck、mkprofile、
+加密的 16.1 iBoot）。可行的绕法不是走 `os2 install` 的启动链，而是：
+
+1. 先让设备正常启动进已装好的 **2nd Data（27.x）**，拿到 root SSH（`lib/SSH` + `osb_ssh` 密钥）；
+2. 在 Mac 上用 `extract_plain_dmg()` 解出 16.1（20B82）的 `fs.dmg` / `os.dmg` / `app.dmg`
+   （16.1 是 AEA 之前的老式加密 DMG，密钥在 `extract_ipsw` 里已由 IPSW 解出，无需联网）；
+3. 复用 `device/os2-stage.sh` 的 `prepare`/`finish` 与 `src/os2vol.c`，把 16.1 rootfs 灌进 OS2System、
+   `/private/var` 灌进 OS2Data，并把 `/System/Cryptexes/{OS,App}`、`com.apple.dyld` 改成指向 Preboot 的符号链接；
+4. 用 `mk_mixfw.py` 的 27.x iBoot + 16.1 kernel/DT/固件 链 bootx，验证 `init` 能否从 16.1 用户态起来。
+
+这一步的关键前置是"能进 2nd Data SSH"——`state.json` 显示 `installed: true`、`last_boot 2026-11-26 18:15:48`，
+而且之前已经验证过 2nd Data 的 SSH 可连。所以主线是明确的，不需要新的内核补丁。
