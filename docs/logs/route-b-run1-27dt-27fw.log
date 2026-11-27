@@ -1,0 +1,344 @@
+======== End of iBoot serial output. ========
+iBoot version: mBoot-20457.2.37
+Darwin Image4 Validator Version 5.0.0: Thu Oct  6 19:28:57 PDT 2022; root:AppleImage4-201.40.10~218/AppleImage4/RELEASE_ARM64E
+AppleImage4: failed to read nvram property: oblit-inprogress: 2
+AppleImage4: failed to read nvram property: 40A0DDD2-77F8-4392-B4A3-1E7304206516:nonce-seeds: 2
+AppleImage4: nonce manager: error reading seeds: 2
+AppleImage4: nonce manager: nonce blob has unexpected length: version = 0, actual = 0, minimum = 266
+AMFI: UDID enforcement enabled
+AppleCredentialManager: init: called, instance = <ptr>.
+ACMFirstResponderKernelService: init: called, .
+ACMTRM-S: init: called, starting PersistentStore service.
+ACMTRM-A: init: called, starting TRM Analytics service.
+ACMTRM-C: init: called, starting AccessoryCache service.
+ACMKernelService: initValueFromBootArgAliasesUInt32: acc-cache size = 16 (default).
+ACMKernelService: initValueFromBootArgAliasesUInt32: acc-cache expiration = 2592000 (default).
+ACM: TRMAccCache_SetupEmpty: called, cacheSize=16 expiration=2592000.
+ACMTRM: init: called, starting TRM service.
+ACMKernelService: initValueFromBootArgAliasesUInt32: config profile = 4294967295 (default).
+ACMTRM: _getDefaultConfigProfile: config profile: 3 (boot-arg=3 edt-prop=3*).
+ACMKernelService: initValueFromBootArgAliasesUInt32: policy mode timeout = 259200 (default).
+ACMKernelService: initValueFromBootArgAliasesUInt32: grace period (bounded) timeout = 3600 (default).
+ACMKernelService: initValueFromBootArgAliasesUInt32: unlocked period timeout = 86400 (default).
+ACMKernelService: initValueFromBootArgAliasesUInt32: enabled by default = 1 (default).
+ACMTRM: _disableBy: [TRM ENABLED=YES] (mask=0, DISABLED BY: Def=NO* BtArg=NO HW=NO DevT=NO OSEnv=NO ExBt=NO | MgCo=NO DwOS=NO ChBd=NO GSw=NO CPro=NO BSys=NO MBud=NO SmCrd=NO).
+ACMTRM: _disableBy: [TRM ENABLED=YES] (mask=0, DISABLED BY: Def=NO BtArg=NO* HW=NO DevT=NO OSEnv=NO ExBt=NO | MgCo=NO DwOS=NO ChBd=NO GSw=NO CPro=NO BSys=NO MBud=NO SmCrd=NO).
+ACMTRM: _loadDisabledByOSEnvironment: disabled by OSEnvironment: NO.
+ACMTRM: _disableBy: [TRM ENABLED=YES] (mask=0, DISABLED BY: Def=NO BtArg=NO HW=NO DevT=NO OSEnv=NO* ExBt=NO | MgCo=NO DwOS=NO ChBd=NO GSw=NO CPro=NO BSys=NO MBud=NO SmCrd=NO).
+ACMTRM: _mapAndPublishTRM: set TRM_PolicyTimeout = 259200.
+ACMTRM: _mapAndPublishTRM: set TRM_UnlockedPeriodTimeout = 86400.
+ACMTRM: _mapAndPublishTRM: sending kIOMessageServicePropertyChange(changes=2) while LOCKED(1), TRM: 259200/-(255) 4294967295/-(255) M=255/4294967295/4294967295 ---(255) L=255 UP=86400/255, CUR: 259200/-(255) 4294967295/-(255).
+AppleInterruptController::start: Num Shared Timestamps == 16
+ApplePMGR: Starting AppleT8030PMGR
+AppleGPIOICController::start: this: <ptr>, _gpioicBaseAddress: <ptr>
+Couldn't find sioaesdisable-offset from DeviceTree to override
+Couldn't find sioaesdisableuid1-offset from DeviceTree to override
+Couldn't find sioaesdisablegid0-offset from DeviceTree to override
+Couldn't find sioaesdisablegid1-offset from DeviceTree to override
+AppleS8000AES::start: registers at phys:0x0x235008000/0x0x23d2d0000 virt:0x<ptr>/0x0x4000 / 0x<ptr>/0x0x4000
+AppleGPIOICController::start: this: <ptr>, _gpioicBaseAddress: <ptr>
+AppleGPIOICController::start: this: <ptr>, _gpioicBaseAddress: <ptr>
+AppleGPIOICController::start: this: <ptr>, _gpioicBaseAddress: <ptr>
+AppleS5L8940XI2CController::start: i2c1 this: <ptr> _i2cBaseAddress: <ptr>
+AppleS5L8940XI2CController::start: i2c2 this: <ptr> _i2cBaseAddress: <ptr>
+AppleS5L8940XI2CController::start: i2c3 this: <ptr> _i2cBaseAddress: <ptr>
+AppleS5L8940XI2CController::start: smc-i2c1 this: <ptr> _i2cBaseAddress: <ptr>
+AppleT8030TypeCPhy@0: AppleT8027TypeCPhy::start: usb3-phy-parent not specified
+AppleARMBacklight::start: Using new Backlight Architecture 1
+AppleARMBacklight::start: _lMaxProduct=78643200
+AppleARMBacklight::start: _lMidProduct=10158080
+AppleARMBacklight::start: _lMinProduct=262144
+AppleARMBacklight::start: Backlight calibration data 0
+AppleARMBacklight::exportCalibration: _lMaxProduct=78643200, _lMidProduct=10158080, _lMinProduct=262144, _lMaxPanel=78643200, _lMidPanel=10158080, _lMinPanel=262144, _milliAmps2NitsScaleFactor=0
+AppleARMBacklight::start: _minDACLevel=153 _maxDACLevel=2047
+AppleOLYHAL::probe: score = 1000
+AppleCredentialManager: init: returning, result = true, instance = <ptr>.
+Couldn't alloc class "AppleKeyStoreTest"
+Warning: arc4random not implemented
+Warning: arc4random not implemented
+Warning: arc4random not implemented
+logIosaActivity: Failed to create IOSA activity log record
+logIosaActivity: Failed to create IOSA activity log record
+AppleARMBootPerf: Warning: profile->magic (0x42545244) != 'BTRC'
+AppleCredentialManager: start: called, instance = <ptr>.
+ACMTRM: _publishIOResource: AppleUSBRestrictedModeTimeout = 259200.
+ACMTRM: start: security.mac.acm.root_pivot_occurred sysctl registered.
+AppleCredentialManager: start: initializing power management.
+AppleCredentialManager: start: will join SEPManager's PM tree in getSEPEndpoint().
+AppleCredentialManager: start: registering notifications.
+AppleCredentialManager: start: started, instance = <ptr>.
+AppleCredentialManager: start: returning, result = true, instance = <ptr>.
+AppleSEPKeyStore:325:0: starting (BUILT: Oct  7 2022 19:27:11) (normal variant)
+AppleSEPKeyStore:528:0: _sep_enabled = 1
+AppleSSE::start called
+AppleSSE::start returning, result = 1
+virtual bool CoreAnalyticsHub::start(IOService *)::139:CoreAnalyticsHub start
+virtual bool CoreAnalyticsHub::start(IOService *)::218:CoreAnalyticsHub start completed
+IOAccessoryManager::configureAccessoryPowerGated: port-inductive-1: Configuring Accessory Power to (1)
+IOAccessoryDock0PinBuiltin::configureAccessoryPowerGated: PowerModeOff
+IOAccessoryDock0PinBuiltin::configureAccessoryPowerInternal: _powerState=1, _powerStateInternal=0, _sleeping=0, _accessoryPowerModeExtOffRequested 0
+IOAccessoryDock0PinBuiltin::configureAccessoryPowerInternal: !getAccessoryPowerReady(); set PowerModeOff?
+IOAccessoryDock0PinBuiltin::configureAccessoryPowerInternal: handleAccessoryPowerWillChange, confirm PowerModeOff
+IOPort::start(): [Port-Inductive@1] Registering service... (portType: 14, portNumber: 1, providerPath: IOService:/AppleARMPE/port-inductive-1)
+
+IOPort::registerService(): [Port-Inductive@1] Registering service Port-Inductive@1...
+
+Port-Inductive handleAccessoryDetect, detect change = 0 (override 100), ID change = 0 (override 0), result 0 
+IOPort::registerService(): [Port-Inductive@1] Registering service Port-Inductive@1...
+
+IOAccessoryTRM::start(): bootedFromRamDisk: NO, dockSupportsTRM: NO (m_mgrPrimaryPortID: 512)
+IOAccessoryTRM::start(): Registering service IOAccessoryTRM... (m_mgrPrimaryPortID: 512)
+Couldn't alloc class "AppleKeyStoreTest"
+AppleEmbeddedAudioResourceManager: ByteOffset=43, ResourceID=0x10000_PCM , AKCIName=AOPAudioHWPCMAssetManagerInterface
+AppleEmbeddedAudioResourceManager: Looking up service matching AKCI 'AOPAudioHWPCMAssetManagerInterface'
+virtual bool AppleARMLightEmUp::start(IOService *): starting...
+AppleT8015TempSensor::start: missing device tree value (sensor-offset-CTL2)
+AppleT8015TempSensor::start: missing device tree value (sensor-offset-CTL1)
+AppleT8015TempSensor::start: missing device tree value (sensor-offset-CTL2)
+AppleT8015TempSensor::start: missing device tree value (sensor-offset-CTL1)
+AppleT8015TempSensor::start: Got temperatureOffsetValue of 13 for locationID 0x54703169
+Ts0i Computing fuse 0xffffffcd5855d5a6 0x441871d1e6 0xffffffc6faf68dc4 0x4758b54f90 0x170 0x170 0x556 0x55a 10 -mr=4 -fr=12
+mtr_solve loop 0 mse * 1000 762 mae * 1000 18 ret 0
+Ts0i  scale 0 binary polynom 33163850,959817,1504426,32935110,29706069,31854749,23234,2639332,4587131,419518,63049,33082286,30779669,31744329,177442,33548813,33503510,512890,552624,465418,33313888
+ApplePMGRMTRSensor property mtr-polynom-eacc missing in devicetreeTp1i Computing fuse 0xffffffdf18f69232 0x4a5718d055 0x<ptr> 0x47388ccee8 0x176 0x176 0x578 0x57e 4 -mr=4 -fr=12
+AppleBCMWLANBusInterface: waiting for 'IOPlatformExpertDevice'
+mtr_solve loop 0 mse * 1000 2942 mae * 1000 279 ret 0
+Tp1i  scale 0 binary polynom 33205008,768856,1557284,33032226,30330635,31184758,193383,1551731,5108723,1080946,33389825,383140,30343624,31537290,33415593,62605,33324047,431793,921574,278530,33440999
+Tp4i Computing fuse 0x<ptr> 0x4c571ed04d 0xffffffd8e4544f1c 0x4ce8a38e01 0x178 0x178 0x590 0x58a 4 -mr=4 -fr=12
+mtr_solve loop 0 mse * 1000 2763 mae * 1000 247 ret 0
+Tp4i  scale 0 binary polynom 33200903,810589,1542829,32944027,30297360,31229270,215603,1872840,4777642,1183097,33415082,158280,30347982,31804994,33256261,56098,33338212,551358,761974,302984,33477208
+Ta0i Computing fuse 0xffffffd78929d132 0x5366a90fef 0xffffffd0b4314ed9 0x527907cdd4 0x174 0x174 0x56c 0x56a 4 -mr=4 -fr=12
+AppleDieTempController::start: 
+AppleDieTempController::initLoopConfig: Loop 0 kp: 0xc0000
+AppleDieTempController::initLoopConfig: Loop 0 ki: 0x70e8000
+panic(cpu 0 caller 0xfffffff013e68eb8): "Unexpected SIO Protocol version 10 - 9" @AppleSmartIO.cpp:84
+Debugger message: panic
+Memory ID: 0x1
+OS release type: Not set yet
+OS version: Not set yet
+Kernel version: Darwin Kernel Version 22.1.0: Thu Oct  6 19:32:38 PDT 2022; root:xnu-8792.42.7~1/RELEASE_ARM64_T8030
+Fileset Kernelcache UUID: 8437DAF5E0BC769C3AC92117F0815370
+Kernel UUID: 17EB6472-1780-3881-B28A-6CCF175F7F46
+Boot session UUID: 330003B9-0541-44E7-B8FB-CF1C4B8E8181
+iBoot version: mBoot-20457.2.37
+secure boot?: YES
+roots installed: 0
+Paniclog version: 14
+KernelCache slide: 0x000000000aae0000
+KernelCache base:  0xfffffff011ae4000
+Kernel slide:      0x000000000b760000
+Kernel text base:  0xfffffff012764000
+Kernel text exec slide: 0x000000000b818000
+Kernel text exec base:  0xfffffff01281c000
+mach_absolute_time: 0x17e4a3343
+Epoch Time:        sec       usec
+  Boot    : 0x00000000 0x00000000
+  Sleep   : 0x00000000 0x00000000
+  Wake    : 0x00000000 0x00000000
+  Calendar: 0x00000000 0x00000000
+
+Zone info:
+  Zone map: 0xffffffe0099f8000 - 0xffffffe6099f8000
+  . VM    : 0xffffffe0099f8000 - 0xffffffe0f005c000
+  . RO    : 0xffffffe0f005c000 - 0xffffffe13cd28000
+  . GEN0  : 0xffffffe13cd28000 - 0xffffffe22338c000
+  . GEN1  : 0xffffffe22338c000 - 0xffffffe3099f0000
+  . GEN2  : 0xffffffe3099f0000 - 0xffffffe3f0058000
+  . GEN3  : 0xffffffe3f0058000 - 0xffffffe4d66c0000
+  . DATA  : 0xffffffe4d66c0000 - 0xffffffe6099f8000
+  Metadata: 0xffffffe006514000 - 0xffffffe007d14000
+  Bitmaps : 0xffffffe007d14000 - 0xffffffe0091e8000
+
+CORE 0 recently retired instr at 0xfffffff0129a1308
+CORE 1 recently retired instr at 0xfffffff0129a285c
+CORE 2 recently retired instr at 0xfffffff0129a285c
+CORE 3 recently retired instr at 0xfffffff0129a285c
+CORE 4 recently retired instr at 0xfffffff0129a285c
+CORE 5 recently retired instr at 0xfffffff0129a285c
+TPIDRx_ELy = {1: 0xffffffe3f00e5b38  0: 0x0000000000000000  0ro: 0x0000000000000000 }
+CORE 0 is the one that panicked. Check the full backtrace for details.
+CORE 1: PC=0xfffffff0128969b4, LR=0xfffffff0128969b4, FP=0xffffffed1175ff00
+CORE 2: PC=0xfffffff0128969b4, LR=0xfffffff0128969b4, FP=0xffffffee88687f00
+CORE 3: PC=0xfffffff0128b382c, LR=0xfffffff0128b382c, FP=0xffffffefff797eb0
+CORE 4: PC=0xfffffff0128969b4, LR=0xfffffff0128969b4, FP=0xffffffee88c27f00
+CORE 5: PC=0xfffffff0128969b4, LR=0xfffffff0128969b4, FP=0xffffffee88c03f00
+Compressor Info: 0% of compressed pages limit (OK) and 0% of segments limit (OK) with 0 swapfiles and OK swap space
+Panicked task 0xffffffe4d66793c0: 0 pages, 223 threads: pid 0: kernel_task
+Panicked thread: 0xffffffe3f00e5b38, backtrace: 0xffffffee88c1b660, tid: 532
+		  lr: 0xfffffff012862ebc  fp: 0xffffffee88c1b6a0
+		  lr: 0xfffffff012862c90  fp: 0xffffffee88c1b710
+		  lr: 0xfffffff0129a89dc  fp: 0xffffffee88c1b730
+		  lr: 0xfffffff01299b968  fp: 0xffffffee88c1b7a0
+		  lr: 0xfffffff01299a364  fp: 0xffffffee88c1b860
+		  lr: 0xfffffff012823610  fp: 0xffffffee88c1b870
+		  lr: 0xfffffff0128626a4  fp: 0xffffffee88c1bc20
+		  lr: 0xfffffff012f7a3e4  fp: 0xffffffee88c1bc40
+		  lr: 0xfffffff013e68eb8  fp: 0xffffffee88c1bc70
+		  lr: 0xfffffff013e61020  fp: 0xffffffee88c1bcc0
+		  lr: 0xfffffff012e67338  fp: 0xffffffee88c1bd50
+		  lr: 0xfffffff012e66988  fp: 0xffffffee88c1be40
+		  lr: 0xfffffff012e64d88  fp: 0xffffffee88c1beb0
+		  lr: 0xfffffff012e6af28  fp: 0xffffffee88c1bf20
+		  lr: 0xfffffff012828960  fp: 0x0000000000000000
+      Kernel Extensions in backtrace:
+         com.apple.driver.AppleSmartIO2(1.0)[AECBAAF2-3424-3BC6-9345-881D2EDBA92E]@0xfffffff013e60730->0xfffffff013e6bc97
+            dependency: com.apple.driver.AppleA7IOP(1.0.2)[DEFC6A13-3BC0-3423-86AD-311057A2B773]@0xfffffff013065810->0xfffffff013073f3b
+            dependency: com.apple.driver.IOSlaveProcessor(1)[15362CBC-056A-3D37-8CA3-EA0B2221089E]@0xfffffff014799780->0xfffffff01479aee3
+            dependency: com.apple.driver.RTBuddy(1.0.0)[48211D53-1FEC-3707-BE8F-2302A545C5A2]@0xfffffff014a771c0->0xfffffff014ab02e3
+            dependency: com.apple.iokit.IOCryptoAcceleratorFamily(1.0.1)[DD042420-9C09-33C0-8705-B4736C61B508]@0xfffffff0145575f0->0xfffffff01455ac5f
+
+last started kext at 6411859265: com.apple.driver.AppleSPU	1 (addr 0xfffffff011ec4230, size 25296)
+loaded kexts:
+com.apple.driver.AppleMobileDispH12P	140.0
+com.apple.driver.ApplePMP	1
+com.apple.driver.AppleSmartIO2	1
+com.apple.driver.AppleFAN53740	1
+com.apple.driver.AppleJPEGDriver	5.1.3
+com.apple.driver.ApplePMPFirmware	1
+com.apple.driver.AppleIDV	5.107.1
+com.apple.AGXG12P	227.2.39
+com.apple.driver.AppleEmbeddedTouchEEPROM	1
+com.apple.driver.AppleCS35L27Amp	600.99
+com.apple.driver.AppleSummitLCD	1.0.0
+com.apple.driver.AppleAVD	616.1
+com.apple.driver.AppleAVE2	630.29.1
+com.apple.driver.AppleT8030CLPCv3	1
+com.apple.driver.AppleT8030SOCTuner	1
+com.apple.driver.AppleHapticsSupportLEAP	7.20
+com.apple.driver.AppleBluetoothModule	1
+com.apple.driver.AppleEmbeddedAudioResourceManager	600.99
+com.apple.driver.AppleBCMWLANBusInterfacePCIe	1
+com.apple.driver.AppleSynopsysMIPIDSI	1.0.0
+com.apple.driver.AppleS5L8940XI2C	1.0.0d2
+com.apple.driver.AppleSamsungSPI	1
+com.apple.driver.AppleSamsungSerial	1.0.0d1
+com.apple.driver.AppleSerialShim	1
+com.apple.driver.AppleDAPF	1
+com.apple.driver.AppleT8020DART	1
+com.apple.driver.AppleS8000AES	1
+com.apple.driver.AppleS5L8920XPWM	1.0.0d1
+com.apple.driver.AppleS8000DWI	1.0.0d1
+com.apple.driver.AppleS5L8960XNCO	1
+com.apple.driver.AppleT8030PMGR	1
+com.apple.driver.AppleInterruptController	1.0.0d1
+com.apple.driver.AppleM68Buttons	1.0.0d1
+com.apple.driver.AppleT8030	1
+com.apple.iokit.IOUserEthernet	1.0.1
+com.apple.driver.IOAudioCodecs	1.0.0
+com.apple.driver.AppleTemperatureSensor	1.0.0d1
+com.apple.driver.AppleDiskImages2	198.40.3
+com.apple.driver.ASIOKit	10.21
+com.apple.security.sandbox	300.0
+com.apple.kec.Compression	1
+com.apple.driver.AppleSPU	1
+com.apple.iokit.IOMobileGraphicsFamily	343.0.0
+com.apple.AGXFirmwareKextG12PRTBuddy	227.2.39
+com.apple.AGXFirmwareKextRTBuddy64	227.2.39
+com.apple.driver.AppleTriStar	1.0.0
+com.apple.driver.AppleAuthCP	1.0.0
+com.apple.iokit.IOGPUFamily	65.0.22
+com.apple.iokit.IONVMeFamily	2.1.0
+com.apple.driver.AppleDiagnosticDataAccessReadOnly	1.0.0
+com.apple.driver.AppleNANDConfigAccess	1.0.0
+com.apple.driver.AppleEmbeddedAudio	600.99
+com.apple.iokit.AppleARMIISAudio	200.8
+com.apple.driver.AppleH10CameraInterface	19.22.0
+com.apple.driver.AppleH10PearlCameraInterface	19.22.0
+com.apple.driver.AppleH11ANEInterface	6.101.0
+com.apple.driver.AppleMCA2-T8030	701.14
+com.apple.driver.ApplePhoneBTM	1.0.1
+com.apple.driver.IOHIDPowerSource	1
+com.apple.driver.AppleT8030PPM	3.0
+com.apple.driver.AppleT8030PCIe	1
+com.apple.driver.AppleAstrisGpioProbe	1.0.1
+com.apple.driver.AppleBluetoothDebug	1
+com.apple.driver.AppleEmbeddedAudioLibs	200.5
+com.apple.driver.AppleFirmwareUpdateKext	1
+com.apple.driver.usb.AppleUSBHostPacketFilter	1.0
+com.apple.driver.AppleBluetoothDebugService	1
+com.apple.driver.AppleBCMWLANCore	1.0.0
+com.apple.iokit.IO80211Family	1200.13.0
+com.apple.driver.IOImageLoader	1.0.0
+com.apple.driver.AppleOLYHAL	1
+com.apple.driver.AppleMobileApNonce	1
+com.apple.driver.AppleUSBXDCIARM	1.0
+com.apple.driver.AppleUSBXDCI	1.0
+com.apple.iokit.IOUSBDeviceFamily	2.0.0
+com.apple.driver.usb.AppleSynopsysUSBXHCI	1
+com.apple.driver.usb.AppleUSBXHCI	1.2
+com.apple.driver.AppleEmbeddedUSBHost	1
+com.apple.driver.usb.AppleUSBHub	1.2
+com.apple.driver.usb.AppleUSBHostCompositeDevice	1.2
+com.apple.driver.AppleT8030TypeCPhy	1
+com.apple.driver.AppleT8027TypeCPhy	1
+com.apple.driver.AppleTypeCPhy	1
+com.apple.driver.AppleSART	1
+com.apple.driver.AppleGPIOICController	1.0.2
+com.apple.driver.AppleARMWatchdogTimer	1
+com.apple.driver.AppleBasebandI19	1.0.0d1
+com.apple.driver.AppleMultiFunctionManager	1
+com.apple.driver.corecapture	1.0.4
+com.apple.driver.AppleEmbeddedPCIE	1
+com.apple.driver.AppleLightningErrorHandler	1
+com.apple.iokit.IOUSBMassStorageDriver	232
+com.apple.iokit.IOSCSIArchitectureModelFamily	476
+com.apple.iokit.IOPCIFamily	2.9
+com.apple.iokit.IOUSBHostFamily	1.2
+com.apple.driver.AppleUSBHostMergeProperties	1.2
+com.apple.driver.usb.AppleUSBCommon	1.0
+com.apple.iokit.IOTimeSyncFamily	1110.14
+com.apple.driver.DiskImages	493.0.0
+com.apple.driver.AppleSMC	1
+com.apple.driver.RTBuddy	1.0.0
+com.apple.driver.AppleEmbeddedTempSensor	1.0.0
+com.apple.driver.AppleARMPMU	1.0
+com.apple.iokit.IOAccessoryManager	1.0.0
+com.apple.iokit.IOHIDFamily	2.0.0
+com.apple.driver.AppleOnboardSerial	1.0
+com.apple.iokit.IOSerialFamily	11
+com.apple.driver.AppleSEPKeyStore	2
+com.apple.driver.AppleEffaceableStorage	1.0
+com.apple.driver.AppleSEPCredentialManager	1.0
+com.apple.driver.AppleIPAppender	1.0
+com.apple.iokit.IOSkywalkFamily	1.0
+com.apple.driver.mDNSOffloadUserClient-Embedded	1.0.1b8
+com.apple.iokit.IONetworkingFamily	3.4
+com.apple.AUC	1.0
+com.apple.iokit.IOAVFamily	1.0.0
+com.apple.iokit.IOHDCPFamily	1.0.0
+com.apple.iokit.IOCECFamily	1
+com.apple.iokit.IOAudio2Family	1.0
+com.apple.driver.AppleIISController	200.2
+com.apple.driver.AppleAudioClockLibs	200.5
+com.apple.driver.AppleM2ScalerCSCDriver	265.0.0
+com.apple.iokit.IOSurface	334.0.1
+com.apple.driver.IODARTFamily	1
+com.apple.driver.AppleSSE	1.0
+com.apple.driver.AppleSEPManager	1.0.1
+com.apple.driver.AppleA7IOP	1.0.2
+com.apple.driver.IOSlaveProcessor	1
+com.apple.driver.LSKDIOKit	19.10.0
+com.apple.driver.FairPlayIOKit	70.35.0
+com.apple.kext.AppleMatch	1.0.0d1
+com.apple.driver.AppleMobileFileIntegrity	1.0.5
+com.apple.iokit.CoreAnalyticsFamily	1
+com.apple.driver.ApplePMGR	1
+com.apple.driver.AppleARMPlatform	1.0.2
+com.apple.iokit.IOStorageFamily	2.1
+com.apple.iokit.IOSlowAdaptiveClockingFamily	1.0.0
+com.apple.iokit.IOReportFamily	47
+com.apple.security.AppleImage4	5.0.0
+com.apple.kext.CoreTrust	1
+com.apple.iokit.IOCryptoAcceleratorFamily	1.0.1
+com.apple.kec.pthread	1
+com.apple.kec.Libm	1
+com.apple.kec.corecrypto	12.0
+
+
+** Stackshot Succeeded ** Bytes Traced 25380 (Uncompressed 85408) **
+
+Please go to https://panic.apple.com to report this panic
+ 
+==== dualboot serial open /dev/cu.usbmodem141101 Thu Nov 26 18:53:47 2026 ====
+                        
+==== dualboot serial open /dev/cu.usbmodem141101 Thu Nov 26 18:54:23 2026 ====

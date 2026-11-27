@@ -128,3 +128,10 @@ ls /var/jb/usr/bin -> apply apt apt-cache ...（rootless 越狱在位）
   `OS2System`/`OS2Data` 对）；
 - 重新进 pwned DFU 需要你在场（板子 + 按键），所以本次没有消耗第二次 pwn；
 - 本文件与上面的代码改动已提交到分支 `ios16-os2-port`。
+
+## 后续：路线 B 已实测
+
+本文结论是"路线 A（改 16.1 自己的 iBoot）走不通"。之后按 **路线 B（用 27.x 明文 iBoot 去 bootx 16.1 内核）**
+在设备上实跑过 4 轮，结果见 [route-b-mixed-boot.md](route-b-mixed-boot.md)：16.1 内核**能**被 27.x iBoot
+bootx 并一路跑到 NVMe 初始化，卡在一个硬件 DMA 错误上，且第二系统内没有 16.1 的用户态可用。
+复现工具：`lib/mk_mixfw.py`。
