@@ -80,15 +80,80 @@ export MIX_KERNEL=~/dualboot-work/mix-16.1/osb/Kernelcache.img4   # 16.1 内核�
 - 抓串口要用常驻的后台进程（`lib/common.py` 的 `Serial`），随手 `&` 起的读进程会被会话清理掉，
   run1 就这么丢过一次日志。
 
+## run 5：AMCC 错误不是必然的，真正的墙是 SIO
+
+run2 和 run4 的 panic 里 `AFERRLOG0/1/2/3 0/0x70800/0x14c040/0x1004 ADDR 0 AID/TID 0x40/0xc0` 完全一致，
+说明那是**同一个** DMA 错误，只是错误处理器在 display / NVMe 两个不同的时间点抓到它。于是把
+`AppleT8030PlatformErrorHandler` 的致命判定改成只打印（`kernel.amcc.ignored-address-error`），
+重跑同一套链（其它 13 个产物 md5 与 run3/run4 完全一致，只换了内核）：
+
+- AMCC 错误**一次都没出现**，连 `Ignored` 都没打印 —— 那一轮的 DMA 到 0 与本次配置无关；
+- NVMe/CoastGuard 顺利初始化（`Successfully initialized NVMe CoastGuard`、8 个 namespace）；
+- 内核继续跑到 `AppleM2ScalerCSCHalMSR::detectHardwareVersion`，然后死在
+  `RTBuddy(SIO)::_setManagedStateGated "No response received in 20s, SIO not started? (4)"@RTBuddy.cpp:1005`。
+
+也就是说：**16.1 的 SIO 协处理器固件在 27.x iBoot 下根本没跑起来**。对比 run1（用 27 的 SIO 固件）报的是
+`Unexpected SIO Protocol version 10 - 9` —— 27 的固件是活的，只是协议版本比 16.1 内核期望的新一代。
+两版 DT 的 `sio` 节点（`reg`、`map-range`、`iop-version`、`ascwrap-v2`）逐字段相同，所以不是 DT 描述的差异。
+
+据此加了第二个诊断补丁 `kernel.iop.state-timeout-log-only`：`_setManagedStateGated` 在
+`cmp w2, #0xe00002d6`（kIOReturnTimeout）命中时 `bl` 进冷块 panic，而紧接着的指令本身就把错误码写回并
+返回 —— 把这个 `bl` NOP 掉，超时变成本来就存在的错误返回路径。
+
+两条补丁都是**诊断用**，不写进默认 profile：`lib/patchfinder/kernel_amcc.py` 里按语义定位（锚字符串 →
+唯一 xref → 守卫分支），在 16.1 和 27.0.1 上都能各自命中，定位不到就报错而不是乱打。
+
+## run 6：把 SIO 换成 27.x 固件 + 接受 v10 —— 内核第一次走到 APFS mountroot
+
+run5 里 16.1 的 SIO 固件从不应答（NOP 超时只是把它静音，display/传感器一系起不来）。反过来用**能应答的
+27.x SIO 固件**，`Unexpected SIO Protocol version 10 - 9` 就成了唯一的门。新增第三个补丁
+`kernel.iop.sio-protocol-accept`：找到 `Unexpected SIO Protocol version %u - %u` 冷块，冷块里
+`mov w9, #9` 给出内核期望的 v9，正常路径上 `cmp w8, #9 / b.ne <冷块>` 是唯一的版本守卫，NOP 掉即可。
+
+这一轮（日志 `docs/logs/route-b-run6-3patch-27sio-apfs.log`）是全系列里走得最远的：
+
+- `RTBuddy(SIO/GFX/ANS2/AOP/PMP): Resuming...` 全部完成，SIO 协议检查通过；
+- APFS 模块加载成功（`apfs-2142.40.13.0.1`），NVMe/CoastGuard 初始化通过；
+- `apfs_vfsop_mountroot:2653: apfs: mountroot called!`，`BSD root: disk0s1`；
+- 唯一剩下的 panic：
+  `Failed to find the root snapshot: No error. (0). Rooting from the live fs of a sealed volume is not allowed on a RELEASE build @apfs_vfsops.c:2401`
+
+根因很明确：`import_iboot_forwarded_roothash: could not retrieve system-volume-auth-blob from device tree`
+—— 16.1 DT 里没有 `system-volume-auth-blob`，iBoot 也没有转发 root hash。这是**用户态墙**：第二系统卷里
+装的是按 27.x 生成的系统，16.1 内核找不到它认识的 APFS 快照哈希。
+
+## run 7/8：APFS 冷块有两个入口，堵一个不够
+
+第四个补丁 `kernel.apfs.root-from-live-fs.*` 尝试让 mountroot 在找不到快照时直接返回而不 panic。第一次
+只 NOP 了 `0x307bba4` 的 `b.ne`，panic 依旧 —— 因为同一个冷块还有第二个入口 `0x307bfa0` 的
+`tbnz w8,#5`，它跳过第一个入口的落点、直接进冷块内部格式化错误码。补丁族已改为：在短语 ADRP 前 0x40
+内收集所有近距离落点、取最小者为冷块起点，再把冷块起点之前、所有跳入该冷块的条件分支全部 NOP
+（16.1 上命中 2 个：`0x307bba4`、`0x307bfa0`）。两个入口都已确认写成 NOP。
+
+run8 的日志因两个串口捕获进程同时写同一文件而交错损坏，无法确认这一轮内核的最终落点；设备随后 panic
+卡在 debugger（`wdt=-1`），板子也没自动 pwn 回来，需要物理重启才能继续。但即使 APFS panic 被绕过，
+结论不变：**第二系统卷里没有 16.1 的用户态**（dyld shared cache、launchd、所有系统二进制都是 27.x 的），
+16.1 内核越过 mountroot 也只会在exec/launchd 处失败。这就是路线 B 的天花板 —— 不是配置问题，是必须
+把 16.1 的 System 卷真正写进 OS2System 才能解决，而那条路（路线 A）卡在加密的 16.1 iBoot。
+
+## 诊断补丁族小结（都在 `lib/patchfinder/kernel_amcc.py`，语义定位，不进默认 profile）
+
+| id | 关掉的 panic | 16.1 落点 |
+|---|---|---|
+| `kernel.amcc.ignored-address-error` | AMCC 地址错误 → 只打印 | 0x23c5ab8 |
+| `kernel.iop.state-timeout-log-only` | 协处理器 20s 超时 → 错误返回 | 0x2fa7858 |
+| `kernel.iop.sio-protocol-accept` | SIO 协议版本 v10≠v9 | 0x237cd68 |
+| `kernel.apfs.root-from-live-fs.{0,1}` | APFS 找不到 root snapshot | 0x307bba4 / 0x307bfa0 |
+
 ## 下一步
 
 现在的位置很明确：**内核能启动，但第二系统里没有能给 16.1 内核用的用户态**。`OS2System`/`OS2Data`
 里装的是按 27.x 生成的系统，16.1 内核即使越过 NVMe 这一关，也只会在 mount/launchd 处失败。所以：
 
-1. **先解决 AMCC PLANE3。** 它是"某个主设备 DMA 到物理地址 0"，最可能的方向是 ANS2 的
-   IOMapper/DART：`IONVMeController::CreateSubmissionQueue` 拿到的队列物理地址是 0，说明那条路径上
-   的地址翻译没建立起来（16.1 的 DT 里 `dart-ans2` / `mapper-*` 与 27.x iBoot 留下的控制器状态不一致）。
-   有 kernel debugger 时看 `AID/TID 0x40/0xc0` 对应的端口就能一步定位；没有的话只能按固件/DT 二分。
+1. **先让 SIO 活过来。** 两条互斥的路：把 SIO 固件换回 27.x 并改掉 16.1 内核里的协议版本校验（SIO 是活的，
+   但 v10 固件是否肯服务 v9 客户端未知），或者保持 16.1 固件、只把超时降级成错误（SIO 是死的，display /
+   传感器一系全部起不来）。前者更接近可用，后者只用来确认剩下的链路（存储 / root mount / launchd）。
+   两个补丁族已经把这两条都铺好了，缺的只是设备时间。
 2. **再解决用户态。** 需要把一个 16.1 的 System 卷放上设备（16.1 IPSW 里有完整的 OS 镜像），并且
    处理 SSV 封印与 APFS 加密——这一步和 16.1 的 SEP/AKS 协议绑死，也是 `family_inventory.py` 里
    `aks`/`boot_policy`/`amfi` 三个族在 16.1 上还没解析出来的原因。
