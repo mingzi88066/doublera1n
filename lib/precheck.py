@@ -202,7 +202,10 @@ def main():
             info('source', f"{src}")
         fw = mkprofile.Firmware(src, board)
         if fw.build != a.build: sys.exit(f"{R}firmware is {fw.build}, expected {a.build}{N}")
-        comp = {k: fw.comp(k) for k in COMPONENTS}
+        absent = [k for k in COMPONENTS if k not in fw.ident['Manifest']]
+        if absent:
+            info('components', f"{', '.join(absent)} not shipped by this build (iOS 16 and older have no TXM)")
+        comp = {k: fw.comp(k) for k in COMPONENTS if k in fw.ident['Manifest']}
 
         # ---------------------------------------------------------------- 1. profile
         pdir = os.path.join(PROFILES, f'{board}-{a.build}')
@@ -221,6 +224,9 @@ def main():
 
         # ---------------------------------------------------------------- 2. records on the stock images
         for name, key, files, excl in CHAINS:
+            if key not in comp:
+                info('records', f"{name}: skipped (no {key} in this build)")
+                continue
             try:
                 img = raw_of(comp[key])
                 recs = kpf.load_records([os.path.join(pdir, f) for f in files], exclude_prefixes=excl)
@@ -234,7 +240,14 @@ def main():
         # ---------------------------------------------------------------- 3. iBoot
         for key, args in IBOOT_ARGS.items():
             rin, rout = os.path.join(tmp, key + '.raw'), os.path.join(tmp, key + '.patched')
-            open(rin, 'wb').write(raw_of(comp[key]))
+            raw = raw_of(comp[key])
+            open(rin, 'wb').write(raw)
+            # iBSS/iBEC of an iOS 16 build are GID-encrypted (KBAG in the IM4P) and the boot-ROM only decrypts them
+            # for its own load; patching needs the plaintext image (iOS 17+ builds ship iBoot in clear).
+            if b'iBoot-' not in raw[0x300:0x320] and b'mBoot-' not in raw[0x300:0x320]:
+                bad('iBoot', f"{key}: payload is encrypted (no iBoot/mBoot header) - must be decrypted before "
+                             f"patch_iboot.py can patch it")
+                continue
             r = subprocess.run([sys.executable, os.path.join(HERE, 'patch_iboot.py'), '--no-fsboot',
                                 f'--boot-args={args}', rin, rout], capture_output=True, text=True)
             if r.returncode: bad('iBoot', f"{key}: {(r.stdout + r.stderr).strip().splitlines()[-1]}")

@@ -320,46 +320,53 @@ def panic(image: core.BinaryImage) -> List[PatchRecord]:
     """NOP the conditional branch entering each of the four SSV/data-protection panic blocks. Emits
     kernel.panic.{root-snapshot,seal-broken,rootvp-authentication,unencrypted-data-volume}.
 
-    The shape that survives relinking is `conditional branch -> cold block: ADRP+ADD x0, format; BL panic`. Each
-    phrase must occur once; its containing C string (the phrase may sit mid-string) must have exactly one ADRP+ADD
-    reference. Among all conditional branches (CBZ/CBNZ/B.cond/TBZ/TBNZ) whose target lies in the 0x40 bytes up
-    to and including that ADRP, the one whose target is closest to the ADRP must be unique.
+    The shape that survives relinking is `conditional branch -> cold block: ADRP+ADD x0, format; BL panic`. The
+    phrase may sit in several diagnostic strings of one kernel (iOS 16.1 prints "root volume seal is broken" from
+    three sites), so every string referenced by exactly one ADRP+ADD is a candidate, and every candidate whose
+    nearest conditional branch (CBZ/CBNZ/B.cond/TBZ/TBNZ, target inside the 0x40-byte panic-block window) is a
+    single block is patched: skipping one of them but not the others would still panic. A build where the phrase is
+    unique keeps the ids without an index, so profiles generated for it are unchanged.
     """
     layout = MachOLayout.of(image)
     records = []
     for anchor_id, text in PANIC_ANCHORS:
         substrings = image.find_all_utf8(text, nul_terminated=False)
-        if len(substrings) != 1:
-            if not substrings:
-                raise PatchfinderError.missing_anchor(text)
-            raise PatchfinderError.ambiguous_anchor(text, len(substrings))
-        string_offset = _c_string_start(image, substrings[0])
-        references = layout.adrp_add_references(string_offset)
-        if len(references) != 1:
-            if len(references) > 1:
-                raise PatchfinderError.ambiguous_candidate(f'kernel panic xref: {text}',
-                                                           [ref.adrp_offset for ref in references])
-            raise PatchfinderError.no_candidate(f'kernel panic xref: {text}')
-        adrp = references[0].adrp_offset
-
-        target_floor = adrp - min(adrp, PANIC_BLOCK_WINDOW)
-        branches = _conditional_branches_into(image, layout, target_floor, adrp)
-        nearest = []
-        if branches:
-            nearest_gap = min(adrp - target for _, target in branches)
-            nearest = [offset for offset, target in branches if adrp - target == nearest_gap]
-        if len(nearest) != 1:
-            if not nearest:
-                raise PatchfinderError.no_candidate(f'kernel panic: {text}')
-            raise PatchfinderError.ambiguous_candidate(f'kernel panic: {text}', nearest)
-        records.append(_word_patch(
-            image, f'kernel.panic.{anchor_id}', nearest[0], ARM64.nop,
-            f'Do not enter the {anchor_id} panic block',
-            (f'unique diagnostic phrase: {text}',
-             'unique ADRP+ADD reference to its containing C string',
-             'conditional target is uniquely closest to that xref within the 0x40-byte panic-block window')))
+        if not substrings:
+            raise PatchfinderError.missing_anchor(text)
+        sites, seen_targets, xrefs = [], set(), 0
+        for substring in substrings:
+            for reference in layout.adrp_add_references(_c_string_start(image, substring)):
+                xrefs += 1
+                adrp = reference.adrp_offset
+                branches = _conditional_branches_into(image, layout, adrp - min(adrp, PANIC_BLOCK_WINDOW), adrp)
+                if not branches:
+                    continue
+                nearest_gap = min(adrp - target for _, target in branches)
+                targets = {target for _, target in branches if adrp - target == nearest_gap}
+                if len(targets) != 1:            # two cold blocks equally close: not a block, leave it alone
+                    continue
+                target = targets.pop()
+                if target in seen_targets:
+                    continue
+                seen_targets.add(target)
+                branch = min(offset for offset, t in branches if t == target)
+                sites.append((branch, target))
+        if not sites:
+            if xrefs > 1:
+                raise PatchfinderError.ambiguous_anchor(text, len(substrings))
+            raise PatchfinderError.no_candidate(f'kernel panic: {text}')
+        for index, (branch, target) in enumerate(sorted(sites)):
+            single = len(sites) == 1
+            records.append(_word_patch(
+                image, f'kernel.panic.{anchor_id}' + ('' if single else f'.{index}'), branch, ARM64.nop,
+                f'Do not enter the {anchor_id} panic block',
+                (f'unique diagnostic phrase: {text}' if single else
+                 f'diagnostic phrase: {text} ({len(substrings)} string(s), {xrefs} xref(s))',
+                 'unique ADRP+ADD reference to its containing C string' if single else
+                 'ADRP+ADD reference to its containing C string',
+                 'conditional target is uniquely closest to that xref within the 0x40-byte panic-block window'
+                 if single else f'cold panic block at {target:#x}, one of {len(sites)} blocks for this phrase')))
     return records
-
 
 # ----------------------------------------------------------------------------------------------------------------
 # amfi: AMFI policy entry points, PE_i_can_has_debugger and developer mode

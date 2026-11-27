@@ -19,6 +19,9 @@ FIRMWARE = [('ANE.img4', 0), ('WCH.img4', 0), ('PMP.img4', 0), ('AOP.img4', 0), 
             ('GFX.img4', 0), ('ISP.img4', 1), ('SIO.img4', 0),
             ('RestoreTrustCache.img4', 0), ('TXM.img4', 0), ('SPTM.img4', 3)]
 OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have none
+# Firmware the build does not ship (iOS 16.x has no TXM, some boards no SPTM) is never built by mk_chain/mk_osb:
+# skip it instead of trying to upload a file that is not there.
+FIRMWARE = [f for f in FIRMWARE if f[0] in OPTIONAL or os.path.exists(os.path.join(C, f[0]))]
 if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
 
 def recovery(timeout=40, hint=''):

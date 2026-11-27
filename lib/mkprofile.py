@@ -125,16 +125,23 @@ def generate(src, board, out_root, rootfs=None, force=False):
         tmpdir = pdir + '.new'
         shutil.rmtree(tmpdir, ignore_errors=True); os.makedirs(tmpdir)
         say(f"iOS {fw.version} ({fw.build}) {board}: resolving every patch site for this build")
-        K, T = fw.comp('KernelCache'), fw.comp('Ap,TrustedExecutionMonitor')
+        # TXM exists from iOS 17 on; iOS 16.x kernels have no Ap,TrustedExecutionMonitor component at all.
+        has_txm = 'Ap,TrustedExecutionMonitor' in fw.ident['Manifest']
+        K = fw.comp('KernelCache')
         counts = {}
         def put(name, recs):
             write_json(os.path.join(tmpdir, name), recs); counts[name] = len(recs)
         put('kernel-boot-jit.json', resolve('kernel', 'boot-jit', K))
         put('kernel-restore-nodebugger.json', [r for r in resolve('kernel', 'restore', K) if not r['id'].startswith(RESTORE_DROP)])
         put('kernel-vm-fault-cs-bypass.json', resolve('kernel', 'vm-fault-cs-bypass', K))
-        bp = resolve('txm', 'boot-permissive', T)
-        put('txm-boot-permissive.json', bp)
-        put('txm-cs-only.json', [r for r in bp if not r['id'].startswith(CS_ONLY_DROP)])
+        if has_txm:
+            bp = resolve('txm', 'boot-permissive', fw.comp('Ap,TrustedExecutionMonitor'))
+            put('txm-boot-permissive.json', bp)
+            put('txm-cs-only.json', [r for r in bp if not r['id'].startswith(CS_ONLY_DROP)])
+        else:
+            say("no Ap,TrustedExecutionMonitor in this build (iOS 16 and older): TXM records stay empty")
+            put('txm-boot-permissive.json', [])
+            put('txm-cs-only.json', [])
         kc = kpatchfind.load_kernel(K)
         put('kernel-ramdisk.json', kpatchfind.ramdisk_set(kc))
         put('kernel-osb.json', kpatchfind.osb_set(kc))
@@ -146,6 +153,7 @@ def generate(src, board, out_root, rootfs=None, force=False):
             'cpid': fw.ident.get('ApChipID', ''), 'bdid': fw.ident.get('ApBoardID', ''),
             'build': fw.build, 'version': fw.version,
             'ipsw_name': os.path.basename(src) if src.endswith('.ipsw') else '',
+            'txm': has_txm,
             'tested': False, 'generated': time.strftime('%Y-%m-%d %H:%M:%S'),
             'generator': {'patchfinder': pf.version(),
                           'kpatchfind': kpatchfind.__doc__.splitlines()[0][:60]},

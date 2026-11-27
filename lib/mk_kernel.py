@@ -21,8 +21,9 @@ P = osbcfg.patch
 IMAGES = [  # (ipsw im4p, output, fourcc or None, record files)
     (osbcfg.comp('KernelCache'), 'Kernelcache.img4', 'rkrn',
      [P('kernel-restore-nodebugger.json'), P('kernel-vm-fault-cs-bypass.json')]),
-    (osbcfg.comp('Ap,TrustedExecutionMonitor'), 'TXM.img4', None, [P('txm-cs-only.json')]),
 ]
+if osbcfg.has('Ap,TrustedExecutionMonitor'):        # iOS 17+ only: 16.x has no TXM in the boot chain
+    IMAGES.append((osbcfg.comp('Ap,TrustedExecutionMonitor'), 'TXM.img4', None, [P('txm-cs-only.json')]))
 
 def main():
     os.makedirs(OUT, exist_ok=True)
