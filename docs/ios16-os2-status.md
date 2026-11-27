@@ -99,8 +99,32 @@ precheck.py --build 20B82 --board d431ap --ipsw iPhone12,3,iPhone12,5_16.1_20B82
 两条路都绕不开第 3 项（内核补丁族 7 个 FAIL）；即使 iBoot 解决，也还要把 `boot-jit` 这套按 16.1 的
 XNU 重写一遍，并把 jbinit/obhook 与 4 个 daemon 补丁移植过去。
 
+## 本次实测记录
+
+```
+# 1) 官方入口直接用 16.1 IPSW 跑 os2 install：预检拦截，设备未被写入
+./dualboot.py os2 install --build 20B82 --ipsw iPhone12,3,iPhone12,5_16.1_20B82_Restore.ipsw
+  == pre-check d431ap (iPhone12,5) build 20B82
+     • components Ap,TrustedExecutionMonitor not shipped by this build (iOS 16 and older have no TXM)
+     ✗ profile  a patch site could not be resolved uniquely:
+                patchfinder kernel boot-jit failed: no candidate: AMFI trust-cache function
+  [dualboot] x pre-check failed - nothing was done
+
+# 2) 已有的 2nd Data 从 pwned DFU 引导成功（这是本机当前能拿到的唯一可用结果）
+./dualboot.py boot
+  [1] iBSS (raw) -> [2] iBEC + go -> [3] firmware 11 个 -> [4] ramdisk -> [5] DT/SEP/kernel -> [6] bootx
+  [dualboot] 2nd Data is up. Jailbreak ready (SSH: ./dualboot.py ssh).
+
+# 3) 起来之后的状态
+sw_vers        -> ProductVersion 27.0.1 / BuildVersion 24A446
+df /private/var -> 176 GB 可用（空间不是瓶颈）
+ls /var/jb/usr/bin -> apply apt apt-cache ...（rootless 越狱在位）
+```
+
 ## 现状
 
-- 主系统 + 2nd Data（27.0.1 越狱态）**未被改动**，仍然可用；
-- 未对设备写入任何 16.1 相关数据（无法构造合法启动链，写进去只会留下垃圾分区）；
+- 主系统 + 2nd Data（27.0.1 越狱态）**已被引导起来并验证可 SSH**，`/var/jb` 正常；
+- 没有对设备写入任何 16.1 相关数据（构造不出合法启动链，写进去只会留下垃圾分区 + 一个永远起不来的
+  `OS2System`/`OS2Data` 对）；
+- 重新进 pwned DFU 需要你在场（板子 + 按键），所以本次没有消耗第二次 pwn；
 - 本文件与上面的代码改动已提交到分支 `ios16-os2-port`。
